@@ -2,15 +2,21 @@
 Telegram bot for Plex
 
 
-# commands:
+## commands:
 * /searchmovie Movie Title
 * /searchtv TV show name
 
-# todo:
+### warnings:
+* requesting a tv show currently requests all seasons
 
-* search my id 
-* add next button
+### for more features open a ticket
+
+### todo:
+
+* search my imdb/tvdb/tmdb id 
+* requesting specific episodes/seasons
 * add options to click next and get next result
+
 
 How to run
 --------------
