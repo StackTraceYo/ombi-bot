@@ -1,6 +1,17 @@
 # plex-bot
 Telegram bot for Plex
 
+
+# commands:
+* /searchmovie Movie Title
+* /searchtv TV show name
+
+# todo:
+
+* search my id 
+* add next button
+* add options to click next and get next result
+
 How to run
 --------------
 
