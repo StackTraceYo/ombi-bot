@@ -1,5 +1,6 @@
 # plex-bot
 Telegram bot for Plex
+- v1 (OMBI Requests) 
 
 
 ## commands:
