@@ -14,5 +14,5 @@ OMBI_BOT_NAME=<telegram bot name>
 ```
 * the run (bot.env is ex env filename)
 
-`docker run --env-file bot.env  stacktraceyo/plexbot`
+`docker run --env-file bot.env -d  stacktraceyo/plexbot`
 	
