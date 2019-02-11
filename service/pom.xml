@@ -28,11 +28,6 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.stacktrace.yo</groupId>
-            <artifactId>jconductor-core</artifactId>
-            <version>${jconductor.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.stacktrace.yo.plexbot</groupId>
             <artifactId>models</artifactId>
             <version>${project.version}</version>
@@ -41,6 +36,10 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
     </dependencies>
 
