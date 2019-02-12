@@ -34,3 +34,4 @@ OMBI_BOT_NAME=<telegram bot name>
 
 `docker run --env-file bot.env -d  stacktraceyo/plexbot`
 	
+https://hub.docker.com/r/stacktraceyo/plexbot
