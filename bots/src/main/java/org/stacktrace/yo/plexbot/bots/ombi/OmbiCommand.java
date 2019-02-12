@@ -3,20 +3,26 @@ package org.stacktrace.yo.plexbot.bots.ombi;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.List;
 import lombok.Data;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiSearchResponse;
 import org.stacktrace.yo.plexbot.models.shared.SearchType;
 import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.List;
+
+@Slf4j
 public abstract class OmbiCommand extends BotCommand {
 
     protected final OmbiService myOmbiService;
@@ -80,12 +86,32 @@ public abstract class OmbiCommand extends BotCommand {
                 .setKeyboard(rows);
     }
 
+    protected <T extends OmbiSearchResponse> void handleReply(AbsSender sender, User user, Chat chat, List<T> searchResults) {
+        try {
+            if (!searchResults.isEmpty()) {
+                if (searchResults.get(0).getAvailable()) {
+                    log.debug("Replying with Available in plex");
+                    sender.execute(plexAvailable(chat.getId(), searchResults.get(0)));
+                } else {
+                    log.debug("Replying with Requesting Search");
+                    sender.execute(requestSearch(chat.getId(), searchResults.get(0)));
+                }
+            } else {
+                log.debug("Replying with Not Found");
+                sender.execute(nonFound(chat.getId()));
+            }
+        } catch (Exception e) {
+            log.error("Error Sending Message", e);
+        }
+    }
+
     @Data
     @Accessors(chain = true)
     public static final class OmbiRequestCallback {
         private String action;
         private String sType;
         private String id;
+        private Integer index;
     }
 
 }

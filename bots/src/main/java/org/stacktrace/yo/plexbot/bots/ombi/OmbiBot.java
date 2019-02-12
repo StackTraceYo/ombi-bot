@@ -1,10 +1,8 @@
 package org.stacktrace.yo.plexbot.bots.ombi;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiMovieRequest;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiSearch;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiTVRequest;
@@ -17,9 +15,11 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.logging.BotLogger;
 
+import java.io.IOException;
+
+@Slf4j
 public class OmbiBot extends TelegramLongPollingCommandBot {
 
-    private static final Logger myLogger = LoggerFactory.getLogger(OmbiBot.class);
     private final OmbiService myOmbiService;
     private final String myTeleToken;
     private final ObjectMapper myMapper;
@@ -103,7 +103,6 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                                                     .setSeasons(ombiTVDetailResponse.getSeasonRequests())
                                     ).ifPresent(map1 -> sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId()));
                                 });
-
                                 break;
                             case NA:
                                 sendError(update.getMessage().getChatId());

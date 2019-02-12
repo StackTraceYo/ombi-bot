@@ -84,5 +84,4 @@ public class OmbiService {
             this.token = token;
         }
     }
-
 }
