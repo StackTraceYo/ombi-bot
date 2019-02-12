@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
+
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -22,11 +24,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("Duplicates")
+@Slf4j
 public class HttpClient {
 
     private final ObjectMapper myMapper;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClient.class);
 
     public HttpClient(ObjectMapper oMapper) {
         myMapper = oMapper
@@ -51,7 +53,7 @@ public class HttpClient {
             T result = executePost(httpPost, new StringResponseHandler(), responseType);
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", pRoute, e);
+            log.debug("Exception calling {}", pRoute, e);
             return Optional.empty();
         }
     }
@@ -76,7 +78,7 @@ public class HttpClient {
             T result = executePost(httpPost, new StringResponseHandler(), responseType);
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", pRoute, e);
+            log.debug("Exception calling {}", pRoute, e);
             return Optional.empty();
         }
     }
@@ -91,7 +93,7 @@ public class HttpClient {
             T result = executeGet(get, new StringResponseHandler(), responseType);
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", pRoute, e);
+            log.debug("Exception calling {}", pRoute, e);
             return Optional.empty();
         }
     }
@@ -106,43 +108,43 @@ public class HttpClient {
             T result = executeGet(get, new StringResponseHandler(), responseType);
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", pRoute, e);
+            log.debug("Exception calling {}", pRoute, e);
             return Optional.empty();
         }
     }
 
     private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, TypeReference<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
-            LOGGER.debug("{} {} {}", get.getMethod(), get.getURI());
+            log.debug("{} {} {}", get.getMethod(), get.getURI());
             String responseBody = httpClient.execute(get, handler);
-            LOGGER.debug("Response Body: {}", responseBody);
+            log.debug("Response Body: {}", responseBody);
             return myMapper.readValue(responseBody, responseType);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", get.getURI(), e);
+            log.debug("Exception calling {}", get.getURI(), e);
             return null;
         }
     }
 
     private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, Class<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
-            LOGGER.debug("{} {} {}", get.getMethod(), get.getURI());
+            log.debug("{} {} {}", get.getMethod(), get.getURI());
             String responseBody = httpClient.execute(get, handler);
-            LOGGER.debug("Response Body: {}", responseBody);
+            log.debug("Response Body: {}", responseBody);
             return myMapper.readValue(responseBody, responseType);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", get.getURI(), e);
+            log.debug("Exception calling {}", get.getURI(), e);
             return null;
         }
     }
 
     private <T> T executePost(HttpPost post, ResponseHandler<String> handler, Class<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
-            LOGGER.debug("{} {}", post.getMethod(), post.getURI());
+            log.debug("{} {}", post.getMethod(), post.getURI());
             String responseBody = httpClient.execute(post, handler);
-            LOGGER.debug("Response Body: {}", responseBody);
+            log.debug("Response Body: {}", responseBody);
             return myMapper.readValue(responseBody, responseType);
         } catch (Exception e) {
-            LOGGER.debug("Exception calling {}", post.getURI(), e);
+            log.debug("Exception calling {}", post.getURI(), e);
             return null;
         }
     }
@@ -153,7 +155,7 @@ public class HttpClient {
         @Override
         public String handleResponse(HttpResponse httpResponse) throws IOException {
             int status = httpResponse.getStatusLine().getStatusCode();
-            LOGGER.debug("HTTP status code from ToGetRequest = {}", status);
+            log.debug("HTTP status code from ToGetRequest = {}", status);
             if (status >= HttpStatus.SC_OK && status < HttpStatus.SC_MULTIPLE_CHOICES) {
                 HttpEntity entity = httpResponse.getEntity();
                 return entity == null ? null : EntityUtils.toString(entity);

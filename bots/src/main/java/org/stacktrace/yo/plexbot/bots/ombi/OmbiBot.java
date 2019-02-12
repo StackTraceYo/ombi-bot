@@ -103,7 +103,6 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                                                     .setSeasons(ombiTVDetailResponse.getSeasonRequests())
                                     ).ifPresent(map1 -> sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId()));
                                 });
-
                                 break;
                             case NA:
                                 sendError(update.getMessage().getChatId());
