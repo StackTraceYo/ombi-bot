@@ -40,7 +40,7 @@ https://hub.docker.com/r/stacktraceyo/plexbot
 
 ##### build jar
 
-mvn clean install -DskipTests
+`mvn clean install -DskipTests`
 
 or download it from :
 
