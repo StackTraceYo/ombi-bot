@@ -1,4 +1,4 @@
-# plex-bot
+# ombi-bot
 Telegram bot for Plex
 - v1 (OMBI Requests) 
 
@@ -22,6 +22,7 @@ Telegram bot for Plex
 How to run
 --------------
 
+##### with docker
 
 * make an env file with the following (bot.env):
 ``` 	
@@ -32,6 +33,16 @@ OMBI_BOT_NAME=<telegram bot name>
 ```
 * the run (bot.env is ex env filename)
 
-`docker run --env-file bot.env -d  stacktraceyo/plexbot`
+`docker run --env-file bot.env -d  stacktraceyo/ombi-bot`
 	
-https://hub.docker.com/r/stacktraceyo/plexbot
+https://hub.docker.com/r/stacktraceyo/ombi-bot
+
+
+##### build jar
+
+`mvn clean install -DskipTests`
+
+or download it from :
+
+
+
