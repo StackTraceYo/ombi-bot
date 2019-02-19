@@ -1,6 +1,6 @@
 package org.stacktrace.yo.plexbot.bots.ombi;
 
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.bots.Commands;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiSearch;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiMovieSearchResponse;
@@ -9,45 +9,26 @@ import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.List;
+
+@Slf4j
 public final class MovieCommand extends OmbiCommand {
 
-    MovieCommand(OmbiService ombiService) {
-        super(ombiService, Commands.Ombibot.SEARCH_MOVIE, "Search for a Movie To Request");
+    MovieCommand(OmbiBot bot, OmbiService ombiService) {
+        super(bot, ombiService, Commands.Ombibot.SEARCH_MOVIE, "Search for a Movie To Request");
     }
 
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
-        List<OmbiMovieSearchResponse> movie = myOmbiService.movieSearch(
+        String query = String.join(" ", strings);
+        List<OmbiMovieSearchResponse> searchResults = myOmbiService.movieSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.MOVIE)
-                        .setQuery(String.join(" ", strings))
+                        .setQuery(query)
         );
 
-        if (!movie.isEmpty()) {
-            if (movie.get(0).getAvailable()) {
-                try {
-                    absSender.execute(plexAvailable(chat.getId(), movie.get(0)));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                try {
-                    absSender.execute(requestSearch(chat.getId(), movie.get(0)));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        } else {
-
-            try {
-                absSender.execute(nonFound(chat.getId()));
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
-
-        }
+        initialReply(absSender, user, chat, query, searchResults);
 
     }
 }

@@ -17,6 +17,7 @@ public abstract class OmbiSearchResponse {
     private String imdbId;
     private SearchType type;
     private Boolean isDetail;
+    private String title;
 
     public abstract String photoPath();
 

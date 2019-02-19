@@ -5,6 +5,8 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.NameValuePair;
 import org.apache.http.entity.ContentType;
 import org.apache.http.message.BasicNameValuePair;
@@ -19,13 +21,13 @@ import org.stacktrace.yo.plexbot.models.ombi.response.OmbiTVSearchResponse;
 import org.stacktrace.yo.plexbot.models.shared.Routes;
 import org.stacktrace.yo.plexbot.service.HttpClient;
 
+@Slf4j
 public class OmbiService {
 
     private final HttpClient myHttpClient;
     private final OmbiConfig myConfig;
     private final NameValuePair[] mySearchHeaders;
     private final NameValuePair[] myRequestHeaders;
-    private static final Logger myLogger = LoggerFactory.getLogger(OmbiService.class);
 
     public OmbiService(HttpClient myhttpClient, OmbiConfig config) {
         myHttpClient = myhttpClient;
@@ -55,7 +57,7 @@ public class OmbiService {
     public Optional<Map> request(OmbiMovieRequest request) {
         return myHttpClient.post(requestUrl(Routes.Ombi.Request.Movie.path), request, myRequestHeaders, Map.class);
     }
-
+    
     private String searchUrl(OmbiSearch search) {
         return myConfig.host + search.toGetPath();
     }
@@ -84,5 +86,4 @@ public class OmbiService {
             this.token = token;
         }
     }
-
 }
