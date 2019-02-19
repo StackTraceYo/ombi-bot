@@ -15,18 +15,19 @@ import java.util.List;
 @Slf4j
 public final class TVCommand extends OmbiCommand {
 
-    TVCommand(OmbiService ombiService) {
-        super(ombiService, Commands.Ombibot.SEARCH_TV, "Search for a Show To Request");
+    TVCommand(OmbiBot bot, OmbiService ombiService) {
+        super(bot, ombiService, Commands.Ombibot.SEARCH_TV, "Search for a Show To Request");
     }
 
 
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
+        String query =String.join(" ", strings);
         List<OmbiTVSearchResponse> searchResults = myOmbiService.tvSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.TV)
-                        .setQuery(String.join(" ", strings))
+                        .setQuery(query)
         );
-        handleReply(absSender, user, chat, searchResults);
+        initialReply(absSender, user, chat, query,  searchResults);
     }
 }

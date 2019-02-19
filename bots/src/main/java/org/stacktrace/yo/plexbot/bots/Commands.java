@@ -6,6 +6,7 @@ public class Commands {
 
         public static final String SEARCH_MOVIE = "searchmovie";
         public static final String SEARCH_TV = "searchtv";
+        public static final String INFO = "info";
 
     }
 

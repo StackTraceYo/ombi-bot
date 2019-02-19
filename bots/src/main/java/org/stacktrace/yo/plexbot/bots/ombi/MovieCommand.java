@@ -15,19 +15,20 @@ import java.util.List;
 @Slf4j
 public final class MovieCommand extends OmbiCommand {
 
-    MovieCommand(OmbiService ombiService) {
-        super(ombiService, Commands.Ombibot.SEARCH_MOVIE, "Search for a Movie To Request");
+    MovieCommand(OmbiBot bot, OmbiService ombiService) {
+        super(bot, ombiService, Commands.Ombibot.SEARCH_MOVIE, "Search for a Movie To Request");
     }
 
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
+        String query = String.join(" ", strings);
         List<OmbiMovieSearchResponse> searchResults = myOmbiService.movieSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.MOVIE)
-                        .setQuery(String.join(" ", strings))
+                        .setQuery(query)
         );
 
-        handleReply(absSender, user, chat, searchResults);
+        initialReply(absSender, user, chat, query, searchResults);
 
     }
 }
