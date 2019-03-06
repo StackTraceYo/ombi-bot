@@ -1,4 +1,5 @@
-# ombi-bot
+
+# ombi-bot ![](https://img.shields.io/docker/pulls/stacktraceyo/ombi-bot.svg)
 Telegram bot for Plex
 - v1 (OMBI Requests) 
 
