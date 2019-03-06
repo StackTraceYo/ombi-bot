@@ -38,13 +38,3 @@ OMBI_BOT_NAME=<telegram bot name>
 `docker run --env-file bot.env -d  stacktraceyo/ombi-bot`
 	
 https://hub.docker.com/r/stacktraceyo/ombi-bot
-
-
-##### build jar
-
-`mvn clean install -DskipTests`
-
-or download it from :
-
-
-
