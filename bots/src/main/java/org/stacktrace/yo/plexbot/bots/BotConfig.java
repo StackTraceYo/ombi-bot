@@ -1,8 +1,8 @@
 package org.stacktrace.yo.plexbot.bots;
 
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.ToString;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -32,11 +32,24 @@ public class BotConfig {
         return StringUtils.isNoneEmpty(name, host, key, token);
     }
 
-    public static BotConfig ombi() {
-        String ombiHost = System.getenv("OMBI_HOST");
-        String ombiKey = System.getenv("OMBI_KEY");
-        String ombiBotToken = System.getenv("OMBI_BOT_TOKEN");
-        String ombiBotName = System.getenv("OMBI_BOT_NAME");
+    public static BotConfig ombi(Map<String, String> props) {
+        String ombiHost = null;
+        String ombiKey = null;
+        String ombiBotToken = null;
+        String ombiBotName = null;
+
+        if (props != null) {
+            ombiHost = props.get("OMBI_HOST");
+            ombiKey = props.get("OMBI_KEY");
+            ombiBotToken = props.get("OMBI_BOT_TOKEN");
+            ombiBotName = props.get("OMBI_BOT_NAME");
+        } else {
+            ombiHost = System.getenv("OMBI_HOST");
+            ombiKey = System.getenv("OMBI_KEY");
+            ombiBotToken = System.getenv("OMBI_BOT_TOKEN");
+            ombiBotName = System.getenv("OMBI_BOT_NAME");
+
+        }
         return new BotConfig(ombiHost, ombiKey, ombiBotToken, ombiBotName);
     }
 
