@@ -24,7 +24,6 @@ Telegram bot for Plex
 How to run
 --------------
 
-##### with docker
 
 * make an env file with the following (bot.env):
 ``` 	
@@ -35,6 +34,19 @@ OMBI_BOT_NAME=<telegram bot name>
 ```
 * the run (bot.env is ex env filename)
 
+##### with docker
+
 `docker run --env-file bot.env -d  stacktraceyo/ombi-bot`
+
+
+##### without docker
+
+* install java version 8+ and maven
+* clone project `git clone https://github.com/StackTraceYo/ombi-bot`
+* cd into directory and run `mvn clean install`
+* get the output jar at `ombi-bot/bots/target/plexbot.jar`
+* run the jar directly with the env file (bot.env is ex env filename)
+
+`java -jar plexbot.jar -p full/path/to/bot.env`
 	
 https://hub.docker.com/r/stacktraceyo/ombi-bot
