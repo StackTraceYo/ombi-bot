@@ -13,6 +13,7 @@ import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -82,6 +83,18 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
 
     }
 
+    private void removeMessage(Integer messageid, Long chatid) {
+        DeleteMessage deleteMessage = new DeleteMessage()
+                .setMessageId(messageid)
+                .setChatId(chatid);
+        try {
+            execute(deleteMessage);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+
+    }
+
     private void sendNoMoreResults(Long chat) {
         SendMessage na = new SendMessage()
                 .setChatId(chat)
@@ -133,7 +146,10 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                                 myOmbiService.request(
                                         new OmbiMovieRequest()
                                                 .setTheMovieDbId(cb.getId())
-                                ).ifPresent(map1 -> sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId()));
+                                ).ifPresent(map1 -> {
+                                    sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId());
+                                    removeMessage(update.getCallbackQuery().getMessage().getMessageId(), update.getCallbackQuery().getMessage().getChatId());
+                                });
                                 break;
                             case TV:
                                 myOmbiService.tvDetail(
@@ -146,7 +162,10 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                                                     .setTvDbId(cb.getId())
                                                     .setRequestAll(true)
                                                     .setSeasons(ombiTVDetailResponse.getSeasonRequests())
-                                    ).ifPresent(map1 -> sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId()));
+                                    ).ifPresent(map1 -> {
+                                        removeMessage(update.getCallbackQuery().getMessage().getMessageId(), update.getCallbackQuery().getMessage().getChatId());
+                                        sendSuccessRequest(update.getCallbackQuery().getMessage().getChatId());
+                                    });
                                 });
                                 break;
                             case NA:
@@ -154,7 +173,7 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                                 break;
                         }
                     } else if (cb.getAction().equals("next")) {
-                        next(update.getCallbackQuery().getMessage().getChatId(), cb);
+                        next(update.getCallbackQuery().getMessage().getMessageId(), update.getCallbackQuery().getMessage().getChatId(), cb);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -165,7 +184,7 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
     }
 
 
-    private void next(Long chatId, OmbiCommand.OmbiRequestCallback cb) {
+    private void next(Integer messageid, Long chatId, OmbiCommand.OmbiRequestCallback cb) {
         try {
 
             int nextIdx = cb.getIndex() + 1;
@@ -198,8 +217,10 @@ public class OmbiBot extends TelegramLongPollingCommandBot {
                         if (result.getPosterPath() != null) {
                             SendPhoto sendPhoto = requestSearch(chatId, reqId, nextId, result);
                             execute(sendPhoto);
+                            removeMessage(messageid, chatId);
                         } else {
                             execute(requestSearchNoPhoto(chatId, reqId, nextId, result));
+                            removeMessage(messageid, chatId);
                         }
                     }
                     break;

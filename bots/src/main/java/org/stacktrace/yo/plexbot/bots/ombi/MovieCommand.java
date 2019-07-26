@@ -22,10 +22,11 @@ public final class MovieCommand extends OmbiCommand {
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
         String query = String.join(" ", strings);
+        String imdbTitleOrQuery = checkIMDB(query);
         List<OmbiMovieSearchResponse> searchResults = myOmbiService.movieSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.MOVIE)
-                        .setQuery(query)
+                        .setQuery(imdbTitleOrQuery)
         );
 
         initialReply(absSender, user, chat, query, searchResults);

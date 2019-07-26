@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiSearchResponse;
 import org.stacktrace.yo.plexbot.models.shared.SearchType;
+import org.stacktrace.yo.plexbot.service.IMDBSearch;
 import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -20,18 +21,36 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 public abstract class OmbiCommand extends BotCommand {
 
     protected final OmbiService myOmbiService;
     private final OmbiBot myBot;
+    protected final Pattern IMDB_URL = Pattern.compile("http[s]*:\\/\\/(?:.*\\.|.*)imdb.com\\/(?:t|T)itle(?:\\?|\\/)(..\\d+)");
+
 
     public OmbiCommand(OmbiBot bot, OmbiService ombiService, String commandIdentifier, String description) {
         super(commandIdentifier, description);
         myBot = bot;
         myOmbiService = ombiService;
+    }
+
+    protected String checkIMDB(String query) {
+        return Optional.ofNullable(query)
+                .map(search -> {
+                    Matcher matcher = IMDB_URL.matcher(search);
+                    boolean found = matcher.find();
+                    if (found) {
+                        return new IMDBSearch(matcher.group(0)).getTitle();
+                    } else {
+                        return query;
+                    }
+                }).orElse(query);
     }
 
 
@@ -150,6 +169,15 @@ public abstract class OmbiCommand extends BotCommand {
         private String query;
         private String id;
         private Integer index;
+    }
+
+    public static void main(String[] args) {
+        final Pattern IMDB_URL = Pattern.compile("http[s]*:\\/\\/(?:.*\\.|.*)imdb.com\\/(?:t|T)itle(?:\\?|\\/)(..\\d+)");
+        Matcher matcher = IMDB_URL.matcher("https://m.imdb.com/title/tt4669296/");
+        matcher.find();
+        String group = matcher.group(0);
+        IMDBSearch imdbSearch = new IMDBSearch(group);
+        imdbSearch.getTitle();
     }
 
 }

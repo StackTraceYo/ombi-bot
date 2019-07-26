@@ -23,10 +23,11 @@ public final class TVCommand extends OmbiCommand {
     @Override
     public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
         String query =String.join(" ", strings);
+        String imdbTitleOrQuery = checkIMDB(query);
         List<OmbiTVSearchResponse> searchResults = myOmbiService.tvSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.TV)
-                        .setQuery(query)
+                        .setQuery(imdbTitleOrQuery)
         );
         initialReply(absSender, user, chat, query,  searchResults);
     }
