@@ -3,10 +3,6 @@ package org.stacktrace.yo.plexbot.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.net.URI;
-import java.util.Optional;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -20,15 +16,16 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.Optional;
 
 @SuppressWarnings("Duplicates")
 @Slf4j
 public class HttpClient {
 
     private final ObjectMapper myMapper;
-
 
     public HttpClient(ObjectMapper oMapper) {
         myMapper = oMapper

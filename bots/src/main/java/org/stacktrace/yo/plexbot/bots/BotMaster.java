@@ -1,17 +1,7 @@
 package org.stacktrace.yo.plexbot.bots;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -30,6 +20,16 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.logging.BotLogger;
 import org.telegram.telegrambots.meta.logging.BotsFileHandler;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+
 import static org.stacktrace.yo.plexbot.bots.Bots.OMBI;
 
 @Slf4j
@@ -39,7 +39,7 @@ public class BotMaster {
     private HttpClient myHttpClient;
     private ObjectMapper myObjectMapper;
 
-    public BotMaster(Map<String,String> props) {
+    public BotMaster(Map<String, String> props) {
         Map<Bots, BotConfig> myBots = load(props);
         if (myBots.isEmpty()) {
             log.warn("No Bots Loaded Exiting...");
@@ -63,9 +63,8 @@ public class BotMaster {
                     switch (s) {
                         case OMBI:
                             OmbiBot ombiBot = new OmbiBot(
-                                    new OmbiService(myHttpClient, new OmbiService.OmbiConfig(
-                                            botConfig.getHost(),
-                                            botConfig.getKey())
+                                    new OmbiService(myHttpClient,
+                                            new OmbiService.OmbiConfig(botConfig.getHost(), botConfig.getKey(), botConfig.getUsername())
                                     ),
                                     botConfig.getName(),
                                     botConfig.getToken(),
@@ -110,7 +109,7 @@ public class BotMaster {
 
         String path = null;
         boolean p = false;
-        Map<String,String> props = null;
+        Map<String, String> props = null;
         try {
             cmd = parser.parse(options, args);
             p = cmd.hasOption("p");
@@ -122,10 +121,10 @@ public class BotMaster {
                             new FileInputStream(path), StandardCharsets.UTF_8));
                     String line;
                     while ((line = br.readLine()) != null) {
-                        if(StringUtils.isNotEmpty(line)){
+                        if (StringUtils.isNotEmpty(line)) {
                             String trimmed = line.trim();
                             String[] split = trimmed.split("=");
-                            if(split.length > 1){
+                            if (split.length > 1) {
                                 String key = split[0];
                                 String value = split[1];
                                 props.put(key, value);
