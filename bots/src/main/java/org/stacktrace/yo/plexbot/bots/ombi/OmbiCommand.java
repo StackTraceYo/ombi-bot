@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 abstract class OmbiCommand<T extends OmbiSearchResponse> extends BotCommand {
 
     final OmbiService myOmbiService;
-    final OmbiCallbackHandler myHandler;
+    private final OmbiCallbackHandler myHandler;
     private final Pattern IMDB_URL = Pattern.compile("http[s]*:\\/\\/(?:.*\\.|.*)imdb.com\\/(?:t|T)itle(?:\\?|\\/)(..\\d+)");
 
 
@@ -44,12 +44,7 @@ abstract class OmbiCommand<T extends OmbiSearchResponse> extends BotCommand {
         return Optional.ofNullable(query)
                 .map(search -> {
                     Matcher matcher = IMDB_URL.matcher(search);
-                    boolean found = matcher.find();
-                    if (found) {
-                        return new IMDBSearch(matcher.group(0)).getTitle();
-                    } else {
-                        return query;
-                    }
+                    return matcher.find() ? new IMDBSearch(matcher.group(0)).getTitle() : query;
                 }).orElse(query);
     }
 

@@ -1,12 +1,12 @@
 
 # ombi-bot ![](https://img.shields.io/docker/pulls/stacktraceyo/ombi-bot.svg)
-Telegram bot for Plex
-- v1 (OMBI Requests) 
+Telegram bot for Ombi Requests
+- v1.2 
 
 
 ## commands:
-* /searchmovie Movie Title
-* /searchtv TV show name
+* /searchmovie Movie Title or imdb url
+* /searchtv TV show name or imdb url
 * /info
 
 ### warning :
@@ -15,10 +15,9 @@ Telegram bot for Plex
 ### for more features open a ticket
 
 ### todo:
-
-* search by imdb/tvdb/tmdb id 
+ 
 * requesting specific episodes/seasons
-* cleanup and testing
+* testing
 
 
 How to run
@@ -27,10 +26,11 @@ How to run
 
 * make an env file with the following (bot.env):
 ``` 	
-OMBI_HOST=<http://www.ombiserver.com:9090>
-OMBI_KEY=<ombi api key>
-OMBI_BOT_TOKEN=<telegram token>
-OMBI_BOT_NAME=<telegram bot name>
+OMBI_HOST=<http://www.ombiserver.com:9090> // The url to ombi instance
+OMBI_KEY=<ombi api key> // ombi api key
+OMBI_BOT_TOKEN=<telegram token> // telegram bot token
+OMBI_BOT_NAME=<telegram bot name> // name of telegram bot
+OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username 
 ```
 * the run (bot.env is ex env filename)
 
