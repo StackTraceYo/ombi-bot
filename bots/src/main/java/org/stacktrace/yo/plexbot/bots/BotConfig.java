@@ -31,7 +31,7 @@ public class BotConfig {
                 .toString();
     }
 
-    public boolean isValid() {
+    boolean isValid() {
         return StringUtils.isNoneEmpty(name, host, key, token);
     }
 

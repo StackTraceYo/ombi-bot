@@ -35,12 +35,12 @@ public class OmbiService {
     }
 
     public List<OmbiMovieSearchResponse> movieSearch(OmbiSearch searchReq) {
-        return myHttpClient.get(searchUrl(searchReq), mySearchHeaders, new TypeReference<List<OmbiMovieSearchResponse>>() {
+        return myHttpClient.cacheGet(searchUrl(searchReq), mySearchHeaders, new TypeReference<List<OmbiMovieSearchResponse>>() {
         }).orElse(Lists.newArrayList());
     }
 
     public List<OmbiTVSearchResponse> tvSearch(OmbiSearch searchReq) {
-        return myHttpClient.get(searchUrl(searchReq), mySearchHeaders, new TypeReference<List<OmbiTVSearchResponse>>() {
+        return myHttpClient.cacheGet(searchUrl(searchReq), mySearchHeaders, new TypeReference<List<OmbiTVSearchResponse>>() {
         }).orElse(Lists.newArrayList());
     }
 
@@ -54,6 +54,10 @@ public class OmbiService {
 
     public Optional<Map> request(OmbiMovieRequest request) {
         return myHttpClient.post(requestUrl(Routes.Ombi.Request.Movie.path), request, myRequestHeaders, Map.class);
+    }
+
+    public Optional<Map> requestMovieByTMDB(String movieId) {
+        return myHttpClient.post(requestUrl(Routes.Ombi.Request.Movie.path), new OmbiMovieRequest().setTheMovieDbId(movieId), myRequestHeaders, Map.class);
     }
 
     private String searchUrl(OmbiSearch search) {

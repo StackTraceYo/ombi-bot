@@ -13,22 +13,19 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 import java.util.List;
 
 @Slf4j
-public final class TVCommand extends OmbiCommand {
+final class TVCommand extends OmbiCommand<OmbiTVSearchResponse> {
 
-    TVCommand(OmbiBot bot, OmbiService ombiService) {
-        super(bot, ombiService, Commands.Ombibot.SEARCH_TV, "Search for a Show To Request");
+    TVCommand(OmbiService ombiService, OmbiCallbackHandler handler) {
+        super(ombiService, handler, Commands.Ombibot.SEARCH_TV, "Search for a Show To Request");
     }
 
 
     @Override
-    public void execute(AbsSender absSender, User user, Chat chat, String[] strings) {
-        String query =String.join(" ", strings);
-        String imdbTitleOrQuery = checkIMDB(query);
-        List<OmbiTVSearchResponse> searchResults = myOmbiService.tvSearch(
+    List<OmbiTVSearchResponse> search(String queryString) {
+        return myOmbiService.tvSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.TV)
-                        .setQuery(imdbTitleOrQuery)
+                        .setQuery(queryString)
         );
-        initialReply(absSender, user, chat, query,  searchResults);
     }
 }

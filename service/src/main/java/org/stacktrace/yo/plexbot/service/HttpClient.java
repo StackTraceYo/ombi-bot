@@ -3,6 +3,8 @@ package org.stacktrace.yo.plexbot.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -20,12 +22,17 @@ import org.apache.http.util.EntityUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("Duplicates")
 @Slf4j
 public class HttpClient {
 
     private final ObjectMapper myMapper;
+    private final Cache<String, String> cache = Caffeine.newBuilder()
+            .expireAfterAccess(2, TimeUnit.MINUTES)
+            .maximumSize(10)
+            .build();
 
     public HttpClient(ObjectMapper oMapper) {
         myMapper = oMapper
@@ -80,6 +87,28 @@ public class HttpClient {
         }
     }
 
+    public <T> Optional<T> cacheGet(String pRoute, NameValuePair[] headers, Class<T> responseType) {
+        return Optional.ofNullable(cache.get(pRoute, s -> get(pRoute, headers)))
+                .map(res -> {
+                    try {
+                        return myMapper.readValue(res, responseType);
+                    } catch (IOException e) {
+                        return null;
+                    }
+                });
+    }
+
+    public <T> Optional<T> cacheGet(String pRoute, NameValuePair[] headers, TypeReference<T> responseType) {
+        return Optional.ofNullable(cache.get(pRoute, s -> get(pRoute, headers)))
+                .map(res -> {
+                    try {
+                        return myMapper.readValue(res, responseType);
+                    } catch (IOException e) {
+                        return null;
+                    }
+                });
+    }
+
     public <T> Optional<T> get(String pRoute, NameValuePair[] headers, Class<T> responseType) {
         try {
             URI route = URI.create(pRoute);
@@ -110,9 +139,9 @@ public class HttpClient {
         }
     }
 
-    private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, TypeReference<T> responseType) {
+    private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, Class<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
-            log.debug("{} {} {}", get.getMethod(), get.getURI());
+            log.debug("{} {}", get.getMethod(), get.getURI());
             String responseBody = httpClient.execute(get, handler);
             log.debug("Response Body: {}", responseBody);
             return myMapper.readValue(responseBody, responseType);
@@ -122,9 +151,9 @@ public class HttpClient {
         }
     }
 
-    private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, Class<T> responseType) {
+    private <T> T executeGet(HttpGet get, ResponseHandler<String> handler, TypeReference<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
-            log.debug("{} {} {}", get.getMethod(), get.getURI());
+            log.debug("{} {}", get.getMethod(), get.getURI());
             String responseBody = httpClient.execute(get, handler);
             log.debug("Response Body: {}", responseBody);
             return myMapper.readValue(responseBody, responseType);
@@ -133,6 +162,33 @@ public class HttpClient {
             return null;
         }
     }
+
+    private String get(String pRoute, NameValuePair[] headers) {
+        try {
+            URI route = URI.create(pRoute);
+            HttpGet get = new HttpGet(route);
+            for (NameValuePair pair : headers) {
+                get.addHeader(pair.getName(), pair.getValue());
+            }
+            return executeGet(get, new StringResponseHandler());
+        } catch (Exception e) {
+            log.debug("Exception calling {}", pRoute, e);
+            return null;
+        }
+    }
+
+    private String executeGet(HttpGet get, ResponseHandler<String> handler) {
+        try (CloseableHttpClient httpClient = httpClient()) {
+            log.debug("{} {}", get.getMethod(), get.getURI());
+            String responseBody = httpClient.execute(get, handler);
+            log.debug("Response Body: {}", responseBody);
+            return responseBody;
+        } catch (Exception e) {
+            log.debug("Exception calling {}", get.getURI(), e);
+            return null;
+        }
+    }
+
 
     private <T> T executePost(HttpPost post, ResponseHandler<String> handler, Class<T> responseType) {
         try (CloseableHttpClient httpClient = httpClient()) {
