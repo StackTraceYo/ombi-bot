@@ -1,25 +1,9 @@
 package org.stacktrace.yo.plexbot.bots;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 import org.apache.commons.lang3.StringUtils;
 import org.stacktrace.yo.plexbot.bots.ombi.OmbiBot;
 import org.stacktrace.yo.plexbot.service.HttpClient;
@@ -30,6 +14,12 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.logging.BotLogger;
 import org.telegram.telegrambots.meta.logging.BotsFileHandler;
 
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+
 import static org.stacktrace.yo.plexbot.bots.Bots.OMBI;
 
 @Slf4j
@@ -39,7 +29,7 @@ public class BotMaster {
     private HttpClient myHttpClient;
     private ObjectMapper myObjectMapper;
 
-    public BotMaster(Map<String,String> props) {
+    private BotMaster(Map<String, String> props) {
         Map<Bots, BotConfig> myBots = load(props);
         if (myBots.isEmpty()) {
             log.warn("No Bots Loaded Exiting...");
@@ -60,22 +50,18 @@ public class BotMaster {
 
             myBots.forEach((s, botConfig) -> {
                 try {
-                    switch (s) {
-                        case OMBI:
-                            OmbiBot ombiBot = new OmbiBot(
-                                    new OmbiService(myHttpClient, new OmbiService.OmbiConfig(
-                                            botConfig.getHost(),
-                                            botConfig.getKey())
-                                    ),
-                                    botConfig.getName(),
-                                    botConfig.getToken(),
-                                    myObjectMapper
-                            );
-                            log.warn("Loading Ombibot {}", s);
-                            myTeleApi.registerBot(ombiBot);
-                            break;
-                        default:
-                            log.warn("Unknown Bot Name {}", s);
+                    if (s == OMBI) {
+                        OmbiBot ombiBot = new OmbiBot(
+                                new OmbiService(myHttpClient,
+                                        new OmbiService.OmbiConfig(botConfig.getHost(), botConfig.getKey(), botConfig.getUsername())
+                                ),
+                                botConfig.getName(),
+                                botConfig.getToken()
+                        );
+                        log.warn("Loading Ombibot {}", s);
+                        myTeleApi.registerBot(ombiBot);
+                    } else {
+                        log.warn("Unknown Bot Name {}", s);
                     }
                 } catch (TelegramApiRequestException e) {
                     log.error("Error Loading Bot {}", s, e);
@@ -85,7 +71,7 @@ public class BotMaster {
         }
     }
 
-    public Map<Bots, BotConfig> load(Map<String, String> props) {
+    private Map<Bots, BotConfig> load(Map<String, String> props) {
 
         Map<Bots, BotConfig> bots = Maps.newHashMap();
         BotConfig ombi = BotConfig.ombi(props);
@@ -109,8 +95,8 @@ public class BotMaster {
         CommandLine cmd;
 
         String path = null;
-        boolean p = false;
-        Map<String,String> props = null;
+        boolean p;
+        Map<String, String> props = null;
         try {
             cmd = parser.parse(options, args);
             p = cmd.hasOption("p");
@@ -122,10 +108,10 @@ public class BotMaster {
                             new FileInputStream(path), StandardCharsets.UTF_8));
                     String line;
                     while ((line = br.readLine()) != null) {
-                        if(StringUtils.isNotEmpty(line)){
+                        if (StringUtils.isNotEmpty(line)) {
                             String trimmed = line.trim();
                             String[] split = trimmed.split("=");
-                            if(split.length > 1){
+                            if (split.length > 1) {
                                 String key = split[0];
                                 String value = split[1];
                                 props.put(key, value);
@@ -142,7 +128,7 @@ public class BotMaster {
             log.error("Provided Config Path Not Found {}", path, e);
             System.exit(1);
         } catch (IOException e) {
-            log.error("Error Reading Config {}", e);
+            log.error("Error Reading Config", e);
             System.exit(1);
         }
         new BotMaster(props);

@@ -16,6 +16,8 @@ public final class InfoCommand extends BotCommand {
             "\tExample: /searchmovie the dark knight\n\n" +
             "To search a TV show use the /searchtv command followed by a <query>\n\n" +
             "\tExample: /searchtv star wars rebels\n\n" +
+            "\t\tNote: Both /searchtv and /searchmovie commands work with imdb urls\n\n" +
+            "\t\ttExample /searchtv https://www.imdb.com/title/tt2568204\n\n" +
             "/info to see this message\n";
 
     InfoCommand() {
