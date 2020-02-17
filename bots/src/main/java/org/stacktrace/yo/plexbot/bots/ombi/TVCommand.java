@@ -6,9 +6,6 @@ import org.stacktrace.yo.plexbot.models.ombi.request.OmbiSearch;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiTVSearchResponse;
 import org.stacktrace.yo.plexbot.models.shared.SearchType;
 import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
-import org.telegram.telegrambots.meta.api.objects.Chat;
-import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.List;
 
@@ -22,10 +19,20 @@ final class TVCommand extends OmbiCommand<OmbiTVSearchResponse> {
 
     @Override
     List<OmbiTVSearchResponse> search(String queryString) {
-        return myOmbiService.tvSearch(
+        List<OmbiTVSearchResponse> ombiTVSearchResponses = myOmbiService.tvSearch(
                 new OmbiSearch()
                         .setSearchType(SearchType.TV)
                         .setQuery(queryString)
         );
+        if (!ombiTVSearchResponses.isEmpty()) {
+            OmbiTVSearchResponse firstResult = ombiTVSearchResponses.get(0);
+            // for whatever reason ombi doesnt tell me what i need to know with the basic search.
+            myOmbiService.tvDetail(new OmbiSearch()
+                    .setSearchType(SearchType.TV)
+                    .setQuery(queryString)
+                    .setDetail(firstResult.getId()))
+                    .ifPresent(firstResult::updateAvailabilityFrom);
+        }
+        return ombiTVSearchResponses;
     }
 }

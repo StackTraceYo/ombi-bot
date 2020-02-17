@@ -22,4 +22,12 @@ public abstract class OmbiSearchResponse {
     public abstract String photoPath();
 
     public abstract String reqId();
+
+    public OmbiSearchResponse updateAvailabilityFrom(OmbiSearchResponse other){
+        this.approved = other.approved;
+        this.available = other.available;
+        this.requested = other.requested;
+        this.plexUrl = other.plexUrl;
+        return this;
+    }
 }
