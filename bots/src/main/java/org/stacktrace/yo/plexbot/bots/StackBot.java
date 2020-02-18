@@ -1,8 +1,11 @@
-package org.stacktrace.yo.plexbot.bots.ombi;
+package org.stacktrace.yo.plexbot.bots;
 
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
-import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
+import org.stacktrace.yo.plexbot.bots.capability.CallbackHandler;
+import org.stacktrace.yo.plexbot.bots.capability.Capability;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
+import org.telegram.telegrambots.extensions.bots.commandbot.commands.IBotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -14,20 +17,21 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public final class OmbiBot extends TelegramLongPollingCommandBot {
+public final class StackBot extends TelegramLongPollingCommandBot {
 
     private final String myTeleToken;
     private final ScheduledExecutorService myScheduledExecutorService;
-    private final OmbiCallbackHandler myCallBackHandler;
+    private final List<CallbackHandler> myHandlers = Lists.newArrayList();
 
-    public OmbiBot(OmbiService ombiService, String botname, String token) {
-        super(botname);
+    public StackBot(String token, List<Capability> capabilities) {
+        super("Plex-Stack-Bot");
         myTeleToken = token;
-        myCallBackHandler = new OmbiCallbackHandler(ombiService, this);
-
-        register(new MovieCommand(ombiService, myCallBackHandler));
-        register(new TVCommand(ombiService, myCallBackHandler));
-        register(new InfoCommand());
+        capabilities.forEach(c -> {
+            CallbackHandler handler = c.handler(this);
+            myHandlers.add(handler);
+            List<IBotCommand> commands = c.commands(handler);
+            commands.forEach(this::register);
+        });
 
         registerDefaultAction((absSender, message) -> {
             SendMessage commandUnknownMessage = new SendMessage();
@@ -36,13 +40,13 @@ public final class OmbiBot extends TelegramLongPollingCommandBot {
             try {
                 absSender.execute(commandUnknownMessage);
             } catch (TelegramApiException e) {
-                BotLogger.error("OmbiBot", e);
+                BotLogger.error("StackBot", e);
             }
         });
         myScheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         myScheduledExecutorService.scheduleAtFixedRate(() -> {
             log.warn("Clearing Callbacks");
-            myCallBackHandler.clearCallbacks();
+            myHandlers.forEach(CallbackHandler::clear);
         }, 0, 30, TimeUnit.MINUTES);
     }
 
@@ -56,7 +60,7 @@ public final class OmbiBot extends TelegramLongPollingCommandBot {
     @Override
     public void processNonCommandUpdate(Update update) {
         if (update.hasCallbackQuery()) {
-            myCallBackHandler.doCallBack(update);
+            myHandlers.forEach(h -> h.doCallBack(update));
         }
     }
 }

@@ -69,6 +69,36 @@ public class Routes {
         }
     }
 
+    public static final class TMDB {
+        private static final String TMDB_API_BASE = "https://api.themoviedb.org/3";
+
+        public static final String path = TMDB_API_BASE;
+
+        public static final class Search {
+
+
+            public static final class Movie {
+                public static final String path = TMDB_API_BASE+ "/search/movie";
+
+                public static String create(String query) {
+                    return path + query;
+                }
+
+            }
+
+            public static final class TV {
+                public static final String path = TMDB_API_BASE +"/search/tv";
+
+                public static String create(String query) {
+                    return path + query;
+                }
+
+            }
+
+        }
+
+    }
+
     public static String encode(String value) {
 
         try {

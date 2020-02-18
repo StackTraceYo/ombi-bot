@@ -1,4 +1,4 @@
-package org.stacktrace.yo.plexbot.models.shared;
+package org.stacktrace.yo.plexbot.models.ombi;
 
 import lombok.Data;
 import lombok.experimental.Accessors;

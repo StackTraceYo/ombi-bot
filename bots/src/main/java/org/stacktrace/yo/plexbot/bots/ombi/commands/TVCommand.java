@@ -1,4 +1,4 @@
-package org.stacktrace.yo.plexbot.bots.ombi;
+package org.stacktrace.yo.plexbot.bots.ombi.commands;
 
 import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.bots.Commands;
@@ -10,9 +10,9 @@ import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import java.util.List;
 
 @Slf4j
-final class TVCommand extends OmbiCommand<OmbiTVSearchResponse> {
+public final class TVCommand extends OmbiCommand<OmbiTVSearchResponse> {
 
-    TVCommand(OmbiService ombiService, OmbiCallbackHandler handler) {
+    public TVCommand(OmbiService ombiService, OmbiCallbackHandler handler) {
         super(ombiService, handler, Commands.Ombibot.SEARCH_TV, "Search for a Show To Request");
     }
 

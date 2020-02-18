@@ -1,4 +1,4 @@
-package org.stacktrace.yo.plexbot.service;
+package org.stacktrace.yo.plexbot.service.imdb;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;

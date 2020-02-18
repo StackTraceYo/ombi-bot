@@ -1,4 +1,4 @@
-package org.stacktrace.yo.plexbot.bots.ombi;
+package org.stacktrace.yo.plexbot.bots.ombi.commands;
 
 import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.bots.Commands;
@@ -10,9 +10,9 @@ import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import java.util.List;
 
 @Slf4j
-final class MovieCommand extends OmbiCommand<OmbiMovieSearchResponse> {
+public final class MovieCommand extends OmbiCommand<OmbiMovieSearchResponse> {
 
-    MovieCommand(OmbiService ombiService, OmbiCallbackHandler callbackHandler) {
+    public MovieCommand(OmbiService ombiService, OmbiCallbackHandler callbackHandler) {
         super(ombiService, callbackHandler, Commands.Ombibot.SEARCH_MOVIE, "Search for a Movie To Request");
     }
 

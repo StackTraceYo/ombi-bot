@@ -1,8 +1,11 @@
-package org.stacktrace.yo.plexbot.bots.ombi;
+package org.stacktrace.yo.plexbot.bots.ombi.commands;
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.stacktrace.yo.plexbot.bots.capability.CallbackHandler;
+import org.stacktrace.yo.plexbot.bots.ombi.OmbiMessages;
+import org.stacktrace.yo.plexbot.bots.ombi.commands.OmbiCommand;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiSearch;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiTVRequest;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiMovieSearchResponse;
@@ -27,19 +30,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
-class OmbiCallbackHandler {
+public class OmbiCallbackHandler implements CallbackHandler {
 
     private final Map<String, OmbiCommand.OmbiRequestCallback> myCallbacks;
-    private final OmbiService myOmbiService;
     private final AbsSender mySender;
+    private final OmbiService myOmbiService;
 
-    OmbiCallbackHandler(OmbiService myOmbiService, AbsSender mySender) {
+    public OmbiCallbackHandler(OmbiService myOmbiService, AbsSender mySender) {
         this.myOmbiService = myOmbiService;
         this.mySender = mySender;
         this.myCallbacks = Maps.newHashMap();
     }
 
-    void doCallBack(Update update) {
+    public void doCallBack(Update update) {
         CallbackQuery query = update.getCallbackQuery();
         if (StringUtils.isNotBlank(query.getData())) {
             String cbId = query.getData();
@@ -86,7 +89,7 @@ class OmbiCallbackHandler {
         }
     }
 
-    void clearCallbacks() {
+    public void clear() {
         myCallbacks.clear();
     }
 

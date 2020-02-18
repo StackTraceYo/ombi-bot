@@ -5,7 +5,7 @@ import lombok.experimental.Accessors;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.stacktrace.yo.plexbot.models.shared.Season;
+import org.stacktrace.yo.plexbot.models.ombi.Season;
 
 @Data
 @Accessors(chain = true)

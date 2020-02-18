@@ -3,7 +3,7 @@ package org.stacktrace.yo.plexbot.models.ombi.response;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
-import org.stacktrace.yo.plexbot.models.shared.Season;
+import org.stacktrace.yo.plexbot.models.ombi.Season;
 
 import java.util.List;
 

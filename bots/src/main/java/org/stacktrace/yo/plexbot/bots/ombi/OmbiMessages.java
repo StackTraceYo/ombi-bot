@@ -10,9 +10,9 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 
 import java.util.List;
 
-class OmbiMessages {
+public class OmbiMessages {
 
-    static SendPhoto plexAvailable(Long id, OmbiSearchResponse response) {
+    public static SendPhoto plexAvailable(Long id, OmbiSearchResponse response) {
         return new SendPhoto()
                 .setChatId(id)
                 .setPhoto(response.photoPath())
@@ -20,20 +20,20 @@ class OmbiMessages {
                 .setReplyMarkup(availableKeyboard(response.getPlexUrl()));
     }
 
-    static SendPhoto requestActive(Long id, OmbiSearchResponse response) {
+    public static SendPhoto requestActive(Long id, OmbiSearchResponse response) {
         return new SendPhoto()
                 .setChatId(id)
                 .setPhoto(response.photoPath())
                 .setCaption((response.getType() == SearchType.TV ? "TV" : "Movie") + " has already been requested.");
     }
 
-    static SendMessage nonFound(Long id) {
+    public static SendMessage nonFound(Long id) {
         return new SendMessage()
                 .setChatId(id)
                 .setText("No Results");
     }
 
-    static SendPhoto requestSearch(Long id, String requestId, String nextId, OmbiSearchResponse response) {
+    public static SendPhoto requestSearch(Long id, String requestId, String nextId, OmbiSearchResponse response) {
         return new SendPhoto()
                 .setChatId(id)
                 .setPhoto(response.photoPath())
@@ -41,7 +41,7 @@ class OmbiMessages {
                 .setReplyMarkup(requestKeyboard(requestId, nextId));
     }
 
-    static SendMessage requestSearchNoPhoto(Long id, String requestId, String nextId, OmbiSearchResponse response) {
+    public static SendMessage requestSearchNoPhoto(Long id, String requestId, String nextId, OmbiSearchResponse response) {
         return new SendMessage()
                 .setChatId(id)
                 .setText("No Image found for " + response.getTitle() + "\n" + (response.getType() == SearchType.TV ? "TV" : "Movie") + " Unavailable")

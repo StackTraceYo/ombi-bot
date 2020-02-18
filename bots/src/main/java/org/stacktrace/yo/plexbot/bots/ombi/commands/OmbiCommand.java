@@ -1,11 +1,11 @@
-package org.stacktrace.yo.plexbot.bots.ombi;
+package org.stacktrace.yo.plexbot.bots.ombi.commands;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiSearchResponse;
-import org.stacktrace.yo.plexbot.service.IMDBSearch;
+import org.stacktrace.yo.plexbot.service.imdb.IMDBSearch;
 import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.Chat;
