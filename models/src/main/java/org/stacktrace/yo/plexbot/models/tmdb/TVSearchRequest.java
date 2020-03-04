@@ -17,7 +17,7 @@ public class TVSearchRequest implements ToGetRequest {
     @Override
     public String toGetPath() {
         String params = "?api_key=" + apiKey + "&query=" + Routes.encode(query);
-        return Routes.TMDB.Search.TV.create(params);
+        return Routes.TMDb.Search.TV.create(params);
     }
 
     @Override

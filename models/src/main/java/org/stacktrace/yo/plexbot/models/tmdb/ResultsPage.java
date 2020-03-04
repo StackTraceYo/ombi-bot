@@ -22,7 +22,7 @@ public class ResultsPage<T>  implements Iterable<T> {
     private int totalPages;
 
     @JsonProperty("total_results")
-    private int totalResults;
+    private int totalResults = 0;
 
     @Override
     public Iterator<T> iterator() {

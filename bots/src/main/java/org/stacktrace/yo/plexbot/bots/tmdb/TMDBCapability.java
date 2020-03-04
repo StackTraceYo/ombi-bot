@@ -5,7 +5,8 @@ import org.stacktrace.yo.plexbot.bots.capability.Capability;
 import org.stacktrace.yo.plexbot.bots.tmdb.commands.TMDBCallbackHandler;
 import org.stacktrace.yo.plexbot.bots.tmdb.commands.TMDBMovieCommand;
 import org.stacktrace.yo.plexbot.bots.tmdb.commands.TMDBTVCommand;
-import org.stacktrace.yo.plexbot.service.tmdb.TMDBService;
+import org.stacktrace.yo.plexbot.service.ombi.OmbiService;
+import org.stacktrace.yo.plexbot.service.api.TMTVDbService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.IBotCommand;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
@@ -13,10 +14,12 @@ import java.util.List;
 
 public class TMDBCapability implements Capability<TMDBCallbackHandler> {
 
-    private final TMDBService tmdbService;
+    private final TMTVDbService myTmdbService;
+    private final OmbiService myOmbiService;
 
-    public TMDBCapability(TMDBService tmdbService) {
-        this.tmdbService = tmdbService;
+    public TMDBCapability(TMTVDbService tmdbService, OmbiService ombiService) {
+        this.myTmdbService = tmdbService;
+        this.myOmbiService = ombiService;
     }
 
     @Override
@@ -27,8 +30,8 @@ public class TMDBCapability implements Capability<TMDBCallbackHandler> {
     @Override
     public List<IBotCommand> commands(TMDBCallbackHandler handler) {
         return Lists.newArrayList(
-                new TMDBMovieCommand(tmdbService),
-                new TMDBTVCommand(tmdbService)
+                new TMDBMovieCommand(myTmdbService),
+                new TMDBTVCommand(myTmdbService, myOmbiService)
         );
     }
 

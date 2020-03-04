@@ -17,7 +17,7 @@ public class MovieSearchRequest implements ToGetRequest {
     @Override
     public String toGetPath() {
         String params = "?api_key=" + apiKey + "&query=" + Routes.encode(query);
-        return Routes.TMDB.Search.Movie.create(params);
+        return Routes.TMDb.Search.Movie.create(params);
     }
 
     @Override

@@ -3,9 +3,10 @@ package org.stacktrace.yo.plexbot.models.tmdb;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class TMDBSeries {
-
 
 
     @JsonProperty("name")
@@ -23,5 +24,13 @@ public class TMDBSeries {
     @JsonProperty("first_air_date")
     private String firstAirDate;
 
+    public String getReleasedYear() {
+        if (firstAirDate != null && !firstAirDate.isEmpty()) {
+            int year = LocalDate.parse(firstAirDate).getYear();
+            return "(" + year + ")";
+        } else {
+            return "";
+        }
+    }
 
 }

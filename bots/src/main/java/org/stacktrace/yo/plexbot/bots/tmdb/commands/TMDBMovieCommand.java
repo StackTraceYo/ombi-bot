@@ -3,7 +3,7 @@ package org.stacktrace.yo.plexbot.bots.tmdb.commands;
 import lombok.extern.slf4j.Slf4j;
 import org.stacktrace.yo.plexbot.bots.Commands;
 import org.stacktrace.yo.plexbot.models.tmdb.MovieResults;
-import org.stacktrace.yo.plexbot.service.tmdb.TMDBService;
+import org.stacktrace.yo.plexbot.service.api.TMTVDbService;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
@@ -13,10 +13,10 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 @Slf4j
 public final class TMDBMovieCommand extends BotCommand {
 
-    private final TMDBService myTMDBService;
+    private final TMTVDbService myTMDBService;
 
-    public TMDBMovieCommand(TMDBService tvService ) {
-        super(Commands.TMDBBot.SEARCH_MOVIE, "Search for a Movie In Imdb");
+    public TMDBMovieCommand(TMTVDbService tvService ) {
+        super(Commands.TMDBBot.SEARCH_MOVIE, "Search for a Movie through TMdb");
         myTMDBService =  tvService;
     }
 

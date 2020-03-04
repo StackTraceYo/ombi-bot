@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.stacktrace.yo.plexbot.bots.capability.CallbackHandler;
 import org.stacktrace.yo.plexbot.bots.ombi.OmbiMessages;
-import org.stacktrace.yo.plexbot.bots.ombi.commands.OmbiCommand;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiSearch;
 import org.stacktrace.yo.plexbot.models.ombi.request.OmbiTVRequest;
 import org.stacktrace.yo.plexbot.models.ombi.response.OmbiMovieSearchResponse;
