@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>plex-stackbot</artifactId>
+        <groupId>org.stacktrace.yo.plexbot</groupId>
+        <version>1.2-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>ombi-bot</artifactId>
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <logback.version>1.2.3</logback.version>
+        <scalatest.version>3.0.3</scalatest.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.typesafe.scala-logging</groupId>
+            <artifactId>scala-logging_2.12</artifactId>
+            <version>3.9.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.9.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.bot4s</groupId>
+            <artifactId>telegram-core_2.12</artifactId>
+            <version>4.4.0-RC2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.bot4s</groupId>
+            <artifactId>telegram-akka_2.12</artifactId>
+            <version>4.4.0-RC2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.softwaremill.sttp</groupId>
+            <artifactId>core_2.12</artifactId>
+            <version>1.7.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.softwaremill.sttp.client</groupId>
+            <artifactId>core_2.12</artifactId>
+            <version>2.0.0-RC13</version>
+        </dependency>
+        <dependency>
+            <groupId>org.stacktrace.yo.plexbot</groupId>
+            <artifactId>models</artifactId>
+        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.json4s</groupId>-->
+<!--            <artifactId>json4s-native_2.12</artifactId>-->
+<!--            <version> 3.6.7</version>-->
+<!--        </dependency>-->
+        <dependency>
+            <groupId>org.json4s</groupId>
+            <artifactId>json4s-jackson_2.12</artifactId>
+            <version> 3.6.7</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.softwaremill.sttp.client/json4s -->
+        <dependency>
+            <groupId>com.softwaremill.sttp.client</groupId>
+            <artifactId>json4s_2.12</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.12</artifactId>
+            <version>${scalatest.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>add-source</goal>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
