@@ -3,6 +3,7 @@ package org.stacktrace.yo.ombi
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.{Timer, TimerTask}
 
 import cats.instances.future._
 import cats.syntax.functor._
@@ -10,183 +11,303 @@ import com.bot4s.telegram.api.RequestHandler
 import com.bot4s.telegram.api.declarative.{Callbacks, Commands}
 import com.bot4s.telegram.clients.ScalajHttpClient
 import com.bot4s.telegram.future.{Polling, TelegramBot}
-import com.bot4s.telegram.methods.{ParseMode, SendMessage}
-import com.bot4s.telegram.models.{InlineKeyboardButton, InlineKeyboardMarkup, Message}
-import org.stacktrace.yo.ombi.OmbiSearch.{OmbiMovieSearchResult, OmbiParams}
+import com.bot4s.telegram.methods.{DeleteMessage, ParseMode, SendMessage}
+import com.bot4s.telegram.models._
+import org.stacktrace.yo.ombi.OmbiAPI.{OmbiMovieSearchResult, OmbiParams, OmbiTVSearchResult}
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
-import sttp.client._
+import sttp.client.{Identity, Response, ResponseError}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import scala.collection.mutable
+import scala.concurrent.duration.{Duration, _}
+import scala.concurrent.{Await, Future, Promise}
+import scala.language.postfixOps
 import scala.util.Try
 
-/** Generates random values.
- */
-class OmbiBot(val token: String) extends TelegramBot
-  with Polling
-  with Callbacks[Future]
-  with Commands[Future] {
-  LoggerConfig.factory = PrintLoggerFactory()
-  // set log level, e.g. to TRACE
-  LoggerConfig.level = LogLevel.TRACE
 
-  // Or just the scalaj-http backend
+class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
+
+  type Searcher[A] = String => Identity[Response[Either[ResponseError[Exception], Seq[A]]]]
+  type ResultMapper[A] = Seq[A] => (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])
+  type MessageMaker = Option[Seq[MediaRequestData]] => Option[Seq[SendMessage]]
+  type AvailMessageMaker = Option[Seq[AvailMediaData]] => Option[SendMessage]
+  type MediaRequester = String => Identity[Response[Either[String, String]]]
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.TRACE
+  private val M_TAG = "M_TAG"
+  private val T_TAG = "T_TAG"
+  private val SEARCH_TV = "searchtv"
+  private val SEARCH_MOVIE = "searchmovie"
+  private val SEARCH_ALL = "search"
+  private val INFO = "info"
+  private val info =
+    """
+    OMBI Bot Commands:
+
+     - /searchmovie command
+       Example: */searchmovie the dark knight*
+
+     - /searchtv command
+       Example: */searchtv star wars rebels*
+
+     - /search command (tv and movie search)
+       Example: */search batman*
+
+     - /info to see this message
+
+     - Note: Both search commands work with imdb urls
+
+       Example: */searchtv https://www.imdb.com/title/tt6751668*
+    """
+
+  private val chatState: mutable.Map[Long, Seq[Int]] = collection.mutable.Map[Long, Seq[Int]]()
   override val client: RequestHandler[Future] = new ScalajHttpClient(token)
 
-  val rng = new scala.util.Random(System.currentTimeMillis())
-  val M_TAG = "M_TAG"
-  val T_TAG = "T_TAG"
-  val movieTag: String => String = prefixTag(M_TAG)
-  val tvTag: String => String = prefixTag(T_TAG)
+  scheduleClear()
 
+  onCommand(SEARCH_TV) { implicit msg =>
+    runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)
+  }
 
+  onCommand(SEARCH_ALL) { implicit msg =>
+    sequentialSendAndSaveMessageId(
+      Seq(SendMessage(msg.source, "*Searching Movies and TV*", parseMode = Some(ParseMode.Markdown), disableNotification = Some(true)))
+    ).map(ids => chatState(msg.source) = ids)
+      .flatMap(_ => runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
+        .flatMap(_ => runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)))
 
-  def convertStringToDate(s: String): String = {
-    if (s.isEmpty) {
-      ""
-    } else {
-      val year = LocalDate.parse(s, DateTimeFormatter.ISO_DATE_TIME).getYear
-      "(" + year + ")"
+  }
+
+  onCommand(SEARCH_MOVIE) { implicit msg =>
+    runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
+  }
+
+  onCommand(INFO) { implicit msg =>
+    replyMd(info, disableWebPagePreview = Some(true)).void
+  }
+
+  onCallbackWithTag(T_TAG) { implicit cbq =>
+    callback(cbq, OmbiAPI.requestTV)
+  }
+
+  onCallbackWithTag(M_TAG) { implicit cbq =>
+    callback(cbq, OmbiAPI.requestMovie)
+  }
+
+  private def noAvail(implicit msg: Message): SendMessage = textMD("*No Available Results*")
+
+  private def noRes(implicit msg: Message): SendMessage = textMD("*No Search Results*")
+
+  private def noResNoAvail(implicit msg: Message): (SendMessage, (SendMessage, Seq[SendMessage])) = (noAvail, (noRes, Seq()))
+
+  def runCommand[A](searcher: Searcher[A], resulted: ResultMapper[A], marker: MessageMaker, availMaker: AvailMessageMaker)(implicit msg: Message): Future[Unit] = {
+    withArgs { args =>
+      val query = args.mkString(" ")
+      val parsed = if (IMDBSearch.looksLike(query)) {
+        request(textMD("*IMDB link detected...*")).map(im =>
+          after(duration = 2 seconds) {
+            request(DeleteMessage(ChatId(im.source), im.messageId))
+          })
+        IMDBSearch(query)
+      } else {
+        query
+      }
+      val (avail, (resultsHeader, resMessages)) = searcher(parsed).body.fold(
+        _ => noResNoAvail,
+        r =>
+          if (r.isEmpty) {
+            noResNoAvail
+          }
+          else {
+            val (avail, results) = resulted(r)
+            val lRes = defaultMessage(availMaker(avail), msg, "*No results available in Plex*")
+            val rRes: (SendMessage, Seq[SendMessage]) = marker(results)
+              .map(r => (textMD(s"*Found ${r.length} Search Results*\n\n"), r))
+              .getOrElse((noRes, Seq()))
+            (lRes, rRes)
+          }
+      )
+      sequentialSendAndSaveMessageId(avail +: (resultsHeader +: resMessages))
+        .map(ids => chatState(msg.source) = ids)
+        .void
     }
   }
 
-  def optionIfEmpty[A, B](seq: Seq[A], b: B): Option[B] = {
+  def callback(cbq: CallbackQuery, requester: MediaRequester): Future[Unit] = {
+    val msg = cbq.message.get
+    val runDeleteAll = () => Future.sequence(
+      chatState.remove(msg.source).getOrElse(Seq())
+        .map(d => DeleteMessage(ChatId(msg.source), d)).map(request(_))
+    ).void
+
+    cbq.data.map(data => {
+      val lr = requester(data).body.fold(_ => textMD("*Error Requesting*")(msg), _ => textMD("*Successfully Requested*")(msg))
+      runDeleteAll()
+      request(lr).map(resMsg => {
+        after(duration = 5 seconds) {
+          request(DeleteMessage(ChatId(resMsg.source), resMsg.messageId))
+        }
+      })
+    })
+      .getOrElse({
+        runDeleteAll()
+        request(textMD("Hm something went wrong")(msg)).map(resMsg => {
+          after(duration = 5 seconds) {
+            request(DeleteMessage(ChatId(resMsg.source), resMsg.messageId))
+          }
+        })
+      }
+      ).void
+  }
+
+  def scheduleClear(d: Duration = 5 minutes): Unit = {
+
+    val t = new Timer()
+    t.scheduleAtFixedRate(new TimerTask {
+      override def run(): Unit = {
+        chatState.foreach(a => a._2.map(id => DeleteMessage(ChatId(a._1), id)).map(request(_)))
+        chatState.clear()
+      }
+    }, 0, d.toMillis)
+  }
+
+  def convertStringToDate(s: String, iso: Boolean = false): String = {
+    try {
+      if (s.isEmpty) {
+        ""
+      } else {
+        val year = if (iso) {
+          LocalDate.parse(s, DateTimeFormatter.ISO_DATE_TIME).getYear
+        } else {
+          LocalDate.parse(s).getYear
+        }
+        "(" + year + ")"
+      }
+    } catch {
+      case e: Throwable => ""
+    }
+  }
+
+  def optionIfEmpty[A](seq: Seq[A]): Option[Seq[A]] = {
     if (seq.isEmpty) {
       Option.empty
     } else {
-      Some(b)
+      Some(seq)
     }
   }
 
-  def tmdbLink(id: String) = (s"https://www.themoviedb.org/movie/${id}")
+  private val tmdbLink: String => String = (id: String) => s"https://www.themoviedb.org/movie/${id}"
 
-  case class MovieRequestData(tmdbLink: String, requestName: String, requestId: String)
+  private val tvdbLink: String => String = (id: String) => s"https://www.thetvdb.com/?id=${id}&tab=series"
 
-  def resultsMessage(results: Seq[OmbiMovieSearchResult]): (Option[Seq[String]], Option[Seq[MovieRequestData]]) = {
+  private val movieTag: String => String = prefixTag(M_TAG)
+
+  private val tvTag: String => String = prefixTag(T_TAG)
+
+  case class MediaRequestData(link: String, requestName: String, requestId: String)
+
+  case class AvailMediaData(link: String, plexLink: String)
+
+  def movieResultsMessage(results: Seq[OmbiMovieSearchResult]): (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]]) = {
     val available = results.take(math.min(results.length, 5))
       .filter(_.isAvailable)
       .map(r => {
-        val releaseDate = convertStringToDate(r.releaseDate)
-        s"[${r.title} $releaseDate](${tmdbLink(r.theMovieDbId)})"
+        val releaseDate = convertStringToDate(r.releaseDate, iso = true)
+        AvailMediaData(s"[${r.title} $releaseDate](${tmdbLink(r.theMovieDbId)})", s"[Plex Link](${r.plexUrl})")
       })
 
     val canRequest = results.take(math.min(results.length, 5))
       .filter(!_.isAvailable)
-      .map(r => {
-        val releaseDate = convertStringToDate(r.releaseDate)
-        val request = InlineKeyboardButton.callbackData(s"${r.title} $releaseDate", "123")
-        val tmdb = InlineKeyboardButton.url("TMDB", tmdbLink(r.theMovieDbId))
-        MovieRequestData(s"[${r.title} $releaseDate](${tmdbLink(r.theMovieDbId)})", r.title, r.theMovieDbId)
-      })
+      .map(r => MediaRequestData(s"${tmdbLink(r.theMovieDbId)}", s"${r.title} ${convertStringToDate(r.releaseDate, iso = true)}", r.theMovieDbId))
 
-    val keyboard = optionIfEmpty(canRequest, canRequest)
-    val availableList = optionIfEmpty(available, available)
-
-    (availableList, keyboard)
+    (optionIfEmpty(available), optionIfEmpty(canRequest))
   }
 
-  def textMD(msg: Message, t: String): SendMessage = {
+  def tvResultsMessage(results: Seq[OmbiTVSearchResult]): (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]]) = {
+    val available = results.take(math.min(results.length, 5))
+      .filter(_.isAvailable)
+      .map(r => {
+        val releaseDate = convertStringToDate(r.firstAired)
+        AvailMediaData(s"[${r.title} $releaseDate](${tvdbLink(r.infoId)})", s"[Plex Link](${r.plexUrl})")
+      })
+
+    val canRequest = results.take(math.min(results.length, 5))
+      .filter(!_.isAvailable)
+      .map(r => MediaRequestData(s"${tvdbLink(r.infoId)}", s"${r.title} ${convertStringToDate(r.firstAired)}", r.theTvDbId))
+
+    (optionIfEmpty(available), optionIfEmpty(canRequest))
+  }
+
+  def resultsMessageAndMarkup(movie: Boolean)(implicit msg: Message): MessageMaker = {
+    results: Option[Seq[MediaRequestData]] => {
+      results.map(media => {
+        media.map(m => {
+          (m.requestName, InlineKeyboardMarkup.singleRow(
+            Seq(
+              InlineKeyboardButton.url(ifElse(movie, "TMDb", "TVDB"), m.link),
+              InlineKeyboardButton.callbackData("Request", ifElse(movie, movieTag, tvTag)(m.requestId))
+            )
+          ))
+        }).map(pair => SendMessage(msg.source, pair._1, replyMarkup = Some(pair._2)))
+      })
+    }
+  }
+
+  def movieResultsMarkup(implicit msg: Message): MessageMaker = resultsMessageAndMarkup(movie = true)
+
+  def tvResultsMarkup(implicit msg: Message): MessageMaker = resultsMessageAndMarkup(movie = false)
+
+  def textMD(t: String)(implicit msg: Message): SendMessage = {
     SendMessage(msg.source, t, parseMode = Some(ParseMode.Markdown))
   }
 
-  def noLeft(msg: SendMessage): (Option[SendMessage], Seq[SendMessage]) = {
-    (Option.empty[SendMessage], Seq(msg))
+  def defaultMessage(msg: Option[SendMessage], a: Message, default: String): SendMessage = {
+    msg.getOrElse(textMD(default)(a)).copy(disableWebPagePreview = Some(true))
   }
 
-  def defaultMessage(msg: Option[SendMessage], a: Message, default: String) = {
-    msg.getOrElse(textMD(a, default)).copy(disableWebPagePreview = Some(true))
-  }
+  def movieAvailReply(implicit msg: Message): AvailMessageMaker = availableReply("movies")
 
+  def tvAvailReply(implicit msg: Message): AvailMessageMaker = availableReply("TV series")
 
-  def availableReply(avail: Option[Seq[String]], msg: Message): Option[SendMessage] = {
-    avail.map(a => textMD(msg, s"*Found ${math.min(a.size, 5)} movies available in Plex*\n" + a.zipWithIndex.map(s => s"*${s._2 + 1}* - ${s._1}").mkString("\n")))
-  }
-
-  def resultsMessageAndMarkup(results: Option[Seq[MovieRequestData]], msg: Message): Option[Seq[(SendMessage, InlineKeyboardButton)]] = {
-    results.map(movies => {
-      movies.map(movie => {
-        val message = textMD(msg, movie.tmdbLink)
-        val request = InlineKeyboardButton.callbackData(s"Request ${movie.requestName}", movie.requestId)
-        (message, request)
-      })
-    })
-  }
-
-  def makeMovieMessages(finalMessages: Seq[(SendMessage, InlineKeyboardButton)]) = {
-    finalMessages.map(pair => pair._1.copy(replyMarkup = Some(InlineKeyboardMarkup.singleButton(pair._2)), disableWebPagePreview = Some(true)))
-  }
-
-  onCommand("searchmovie") { implicit msg =>
-    withArgs { args =>
-      val q = args.mkString(" ")
-      val response = OmbiSearch.searchMovie(q)
-      val body: Either[ResponseError[Exception], Seq[OmbiMovieSearchResult]] = response.body
-      val lr = body.fold(
-        (l: ResponseError[Exception]) => (textMD(msg, "*No Available Results*"), (textMD(msg, "*No Search Results*"), Seq())),
-        (r: Seq[OmbiMovieSearchResult]) =>
-          if (r.isEmpty) {
-            (textMD(msg, "*No Available Results*"), (textMD(msg, "*No Search Results*"), Seq()))
-          }
-          else {
-            val (avail, results) = resultsMessage(r)
-            val lRes = defaultMessage(availableReply(avail, msg), msg, "*No results available in Plex*")
-            val rRes: (SendMessage, Seq[SendMessage]) = resultsMessageAndMarkup(results, msg)
-              .map(makeMovieMessages)
-              .map(r => (textMD(msg, s"*Found ${r.length} Search Results*"), r))
-              .getOrElse((textMD(msg, "*No Search Results*"), Seq()))
-            (lRes, rRes)
-          }
-      )
-
-      val (availableMovies: SendMessage, right: (SendMessage, Seq[SendMessage])) = lr
-      val (movieResultMessage, movieMessages) = right
-      request(movieResultMessage)
-        .map(_ => Future.sequence(movieMessages.map(request(_))))
-        .map(_ => request(availableMovies))
-    }
-  }
-  //  onCallbackWithTag(M_TAG) { implicit cbq =>
-  //
-  //  }
-
-  onCommand("coin" or "flip") { implicit msg =>
-    reply(if (rng.nextBoolean()) "Head!" else "Tail!").void
-  }
-  onCommand('real | 'double | 'float) { implicit msg =>
-    reply(rng.nextDouble().toString).void
-  }
-  onCommand("/dice" | "roll") { implicit msg =>
-    reply("⚀⚁⚂⚃⚄⚅"(rng.nextInt(6)).toString).void
-  }
-  onCommand("random" or "rnd") { implicit msg =>
-    withArgs {
-      case Seq(Int(n)) if n > 0 =>
-        reply(rng.nextInt(n).toString).void
-      case _ => reply("Invalid argumentヽ(ಠ_ಠ)ノ").void
-    }
-  }
-  onCommand('choose | 'pick | 'select) { implicit msg =>
-    withArgs { args =>
-      replyMd(if (args.isEmpty) "No arguments provided." else args(rng.nextInt(args.size))).void
+  def availableReply(media: String)(implicit msg: Message): AvailMessageMaker = {
+    avail: Option[Seq[AvailMediaData]] => {
+      avail.map(a => textMD(s"*Found ${math.min(a.size, 5)} ${media} available in Plex*\n" + a.zipWithIndex.map(s => {
+        val (availData: AvailMediaData, idx: Int) = s
+        s"*${idx + 1}* - ${availData.link}  - ${availData.plexLink}"
+      }).mkString("\n")))
     }
   }
 
-  // Int(n) extractor
-  object Int {
-    def unapply(s: String): Option[Int] = Try(s.toInt).toOption
+  private def ifElse[A](a: Boolean, t: A, f: A): A = {
+    if (a) {
+      t
+    } else {
+      f
+    }
   }
 
+  def sequentialSendAndSaveMessageId(messages: Seq[SendMessage])(implicit msg: Message): Future[Seq[Int]] = {
+    val fSequence = {
+      var fAccum: Future[Seq[Int]] = Future {
+        chatState.getOrElse(msg.source, Seq())
+      }
+      for (item <- messages) {
+        fAccum = fAccum flatMap { acc: Seq[Int] => request(item.copy(disableNotification = Some(true))).map(res => res.messageId +: acc) }
+      }
+      fAccum
+    }
+    fSequence
+  }
+
+  def after[T](duration: Duration)(block: => T): Future[T] = {
+    val promise = Promise[T]()
+    val t = new Timer()
+    t.schedule(new TimerTask {
+      override def run(): Unit = {
+        promise.complete(Try(block))
+      }
+    }, duration.toMillis)
+    promise.future
+  }
 }
-
-object OmbiBot extends App {
-  // To run spawn the bot
-  val bot = new OmbiBot("")
-  val eol = bot.run()
-  println("Press [ENTER] to shutdown the bot, it may take a few seconds...")
-  scala.io.StdIn.readLine()
-  bot.shutdown() // initiate shutdown
-  // Wait for the bot end-of-life
-  Await.result(eol, Duration.Inf)
-}
-
 

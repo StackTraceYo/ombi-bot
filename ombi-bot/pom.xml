@@ -34,11 +34,6 @@
             <version>4.4.0-RC2</version>
         </dependency>
         <dependency>
-            <groupId>com.bot4s</groupId>
-            <artifactId>telegram-akka_2.12</artifactId>
-            <version>4.4.0-RC2</version>
-        </dependency>
-        <dependency>
             <groupId>com.softwaremill.sttp</groupId>
             <artifactId>core_2.12</artifactId>
             <version>1.7.2</version>
@@ -49,30 +44,19 @@
             <version>2.0.0-RC13</version>
         </dependency>
         <dependency>
-            <groupId>org.stacktrace.yo.plexbot</groupId>
-            <artifactId>models</artifactId>
-        </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.json4s</groupId>-->
-<!--            <artifactId>json4s-native_2.12</artifactId>-->
-<!--            <version> 3.6.7</version>-->
-<!--        </dependency>-->
-        <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-jackson_2.12</artifactId>
             <version> 3.6.7</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.softwaremill.sttp.client/json4s -->
         <dependency>
             <groupId>com.softwaremill.sttp.client</groupId>
             <artifactId>json4s_2.12</artifactId>
             <version>2.0.1</version>
         </dependency>
         <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_2.12</artifactId>
-            <version>${scalatest.version}</version>
-            <scope>test</scope>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.12.1</version>
         </dependency>
     </dependencies>
 
@@ -91,6 +75,68 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>shaded</shadedClassifierName>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Some care is required: http://doc.akka.io/docs/akka/snapshot/general/configuration.html -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                                    <resource>reference.conf</resource>
+                                </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.stacktrace.yo.ombi.OmbiBot</mainClass>
+                                </transformer>
+                            </transformers>
+                            <finalName>plexbot</finalName>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>dockerfile-maven-plugin</artifactId>
+                <version>1.4.9</version>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <repository>stacktraceyo/ombi-bot</repository>
+                    <tag>${project.version}</tag>
+                    <buildArgs>
+                        <JAR_FILE>plexbot.jar</JAR_FILE>
+                    </buildArgs>
+                </configuration>
             </plugin>
         </plugins>
     </build>
