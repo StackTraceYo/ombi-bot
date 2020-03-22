@@ -22,6 +22,7 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[Seq[OmbiMovieSearchResult]])
+      .mapResponse(e => e.fold(l => Left(l), r => Right(r.map(movieDetail))))
       .send()
   }
 
@@ -33,11 +34,11 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[Seq[OmbiTVSearchResult]])
-      .mapResponse(e => e.fold(l => Left(l), r => Right(r.map(doDetail))))
+      .mapResponse(e => e.fold(l => Left(l), r => Right(r.map(tvDetail))))
       .send()
   }
 
-  def doDetail(result: OmbiTVSearchResult)(implicit ombi: OmbiParams): OmbiTVSearchResult = {
+  def tvDetail(result: OmbiTVSearchResult)(implicit ombi: OmbiParams): OmbiTVSearchResult = {
     basicRequest.get(uri"${ombi.host}/api/v1/Search/Tv/info/${result.infoId}")
       .headers(
         new Header("ApiKey", ombi.key),
@@ -45,6 +46,19 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[OmbiTVSearchResult])
+      .mapResponse(e => e.fold(_ => result, r => result.merge(r)))
+      .send()
+      .body
+  }
+
+  def movieDetail(result: OmbiMovieSearchResult)(implicit ombi: OmbiParams): OmbiMovieSearchResult = {
+    basicRequest.get(uri"${ombi.host}/api/v1/Search/Movie/info/${result.infoId}")
+      .headers(
+        new Header("ApiKey", ombi.key),
+        new Header(ombi.userHeader, ombi.userValue),
+        new Header("Content-Type", MediaTypes.Json)
+      )
+      .response(asJson[OmbiMovieSearchResult])
       .mapResponse(e => e.fold(_ => result, r => result.merge(r)))
       .send()
       .body
@@ -98,15 +112,25 @@ object OmbiAPI {
 
   case class OmbiTVRequest(tvDbId: String, requestAll: Boolean = true, latestSeason: Boolean = false, firstSeason: Boolean = false, seasons: Seq[Season] = Seq())
 
-  case class OmbiMovieSearchResult(theMovieDbId: String, posterPath: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, releaseDate: String, id: String) {
+  case class OmbiMovieSearchResult(theMovieDbId: String, posterPath: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, releaseDate: String, id: String, imdbId: String) {
     def isAvailable: Boolean = available || (plexUrl != null && plexUrl.nonEmpty)
+
+    def infoId: String = if (theMovieDbId != null) {
+      theMovieDbId
+    } else {
+      id
+    }
+
+    def merge(r: OmbiMovieSearchResult) = {
+      copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, imdbId = r.imdbId)
+    }
   }
 
-  case class OmbiTVSearchResult(theTvDbId: String, banner: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, firstAired: String, id: String, seasonRequests: Seq[Season] = Seq()) {
+  case class OmbiTVSearchResult(theTvDbId: String, banner: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, firstAired: String, id: String, imdbId: String, seasonRequests: Seq[Season] = Seq()) {
     def isAvailable: Boolean = available || (plexUrl != null && plexUrl.nonEmpty)
 
     def merge(r: OmbiTVSearchResult) = {
-      copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, theTvDbId = r.theTvDbId)
+      copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, theTvDbId = r.theTvDbId, imdbId = r.imdbId)
     }
 
     def infoId: String = if (theTvDbId != null) {

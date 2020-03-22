@@ -24,7 +24,7 @@ import scala.language.postfixOps
 import scala.util.Try
 
 
-class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
+class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
 
   type Searcher[A] = String => Identity[Response[Either[ResponseError[Exception], Seq[A]]]]
   type ResultMapper[A] = Seq[A] => (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])
@@ -34,6 +34,8 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
 
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.TRACE
+  private val M = 0
+  private val T = 0
   private val M_TAG = "M_TAG"
   private val T_TAG = "T_TAG"
   private val SEARCH_TV = "searchtv"
@@ -61,7 +63,9 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
     """
 
   private val chatState: mutable.Map[Long, Seq[Int]] = collection.mutable.Map[Long, Seq[Int]]()
+  private val requestIdState: mutable.Map[String, MediaRequestData] = collection.mutable.Map[String, MediaRequestData]()
   override val client: RequestHandler[Future] = new ScalajHttpClient(token)
+
 
   scheduleClear()
 
@@ -141,11 +145,23 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
     ).void
 
     cbq.data.map(data => {
-      val lr = requester(data).body.fold(_ => textMD("*Error Requesting*")(msg), _ => textMD("*Successfully Requested*")(msg))
-      runDeleteAll()
-      request(lr).map(resMsg => {
+     reply("Requesting...")(msg).map(rm => {
         after(duration = 5 seconds) {
-          request(DeleteMessage(ChatId(resMsg.source), resMsg.messageId))
+          request(DeleteMessage(ChatId(rm.source), rm.messageId))
+        }
+      }).void
+      val media: Option[MediaRequestData] = requestIdState.remove(data)
+      val name = media.map(_.requestName).getOrElse("Unknown")
+      val lr = requester(data).body.fold(_ => (textMD("*Error Requesting*")(msg), false), _ => (textMD(s"*Successfully Requested ${name}*")(msg), true))
+      runDeleteAll()
+      request(lr._1).map(_ => {
+        val pushText = media.map(m => {
+          s"Received Request for ${m.requestName} ${imdbLink(m.imdb)}"
+        }).getOrElse( s"*Request for ${name} received*")
+        after(duration = 5 seconds) {
+          if (lr._2) {
+            request(SendMessage(ChatId(push), pushText, parseMode = Some(ParseMode.Markdown), disableWebPagePreview = Some(true)))
+          }
         }
       })
     })
@@ -167,6 +183,7 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
       override def run(): Unit = {
         chatState.foreach(a => a._2.map(id => DeleteMessage(ChatId(a._1), id)).map(request(_)))
         chatState.clear()
+        requestIdState.clear()
       }
     }, 0, d.toMillis)
   }
@@ -200,11 +217,15 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
 
   private val tvdbLink: String => String = (id: String) => s"https://www.thetvdb.com/?id=${id}&tab=series"
 
+  private val imdbLink: String => String = (id: String) => s"https://www.imdb.com/title/$id"
+
+
+
   private val movieTag: String => String = prefixTag(M_TAG)
 
   private val tvTag: String => String = prefixTag(T_TAG)
 
-  case class MediaRequestData(link: String, requestName: String, requestId: String)
+  case class MediaRequestData(link: String, requestName: String, requestId: String, imdb: String, t: Int)
 
   case class AvailMediaData(link: String, plexLink: String)
 
@@ -218,8 +239,9 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
 
     val canRequest = results.take(math.min(results.length, 5))
       .filter(!_.isAvailable)
-      .map(r => MediaRequestData(s"${tmdbLink(r.theMovieDbId)}", s"${r.title} ${convertStringToDate(r.releaseDate, iso = true)}", r.theMovieDbId))
+      .map(r => MediaRequestData(s"${tmdbLink(r.theMovieDbId)}", s"${r.title} ${convertStringToDate(r.releaseDate, iso = true)}", r.theMovieDbId, r.imdbId, M))
 
+    canRequest.foreach(a => requestIdState.put(a.requestId, a))
     (optionIfEmpty(available), optionIfEmpty(canRequest))
   }
 
@@ -233,8 +255,8 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
 
     val canRequest = results.take(math.min(results.length, 5))
       .filter(!_.isAvailable)
-      .map(r => MediaRequestData(s"${tvdbLink(r.infoId)}", s"${r.title} ${convertStringToDate(r.firstAired)}", r.theTvDbId))
-
+      .map(r => MediaRequestData(s"${tvdbLink(r.infoId)}", s"${r.title} ${convertStringToDate(r.firstAired)}", r.theTvDbId, r.imdbId, T))
+    canRequest.foreach(a => requestIdState.put(a.requestId, a))
     (optionIfEmpty(available), optionIfEmpty(canRequest))
   }
 
@@ -311,3 +333,15 @@ class OmbiBot(val token: String)(implicit val ombi: OmbiParams) extends Telegram
   }
 }
 
+abstract class PushNotificationBot(chat: Long)(implicit val ombi: OmbiParams) extends TelegramBot with Polling {
+}
+
+object OmbiBot extends App {
+  // To run spawn the bot
+  val eol = bot.run()
+  println("Press [ENTER] to shutdown the bot, it may take a few seconds...")
+  scala.io.StdIn.readLine()
+  bot.shutdown() // initiate shutdown
+  // Wait for the bot end-of-life
+  Await.result(eol, Duration.Inf)
+}
