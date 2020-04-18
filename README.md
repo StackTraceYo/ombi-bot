@@ -1,12 +1,13 @@
 
 # ombi-bot ![](https://img.shields.io/docker/pulls/stacktraceyo/ombi-bot.svg)
 Telegram bot for Ombi Requests
-- v1.2 
+- v2.0
 
 
 ## commands:
 * /searchmovie Movie Title or imdb url
 * /searchtv TV show name or imdb url
+* /search Search both Movie and TV show name or imdb url
 * /info
 
 ### warning :
@@ -47,6 +48,6 @@ OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username
 * get the output jar at `ombi-bot/bots/target/plexbot.jar`
 * run the jar directly with the env file (bot.env is ex env filename)
 
-`java -jar plexbot.jar -p full/path/to/bot.env`
+`java -jar ombibot.jar -p full/path/to/bot.env`
 	
 https://hub.docker.com/r/stacktraceyo/ombi-bot
