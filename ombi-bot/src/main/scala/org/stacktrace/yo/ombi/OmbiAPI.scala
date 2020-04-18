@@ -1,7 +1,5 @@
 package org.stacktrace.yo.ombi
 
-import java.util.regex.{Matcher, Pattern}
-
 import com.softwaremill.sttp.MediaTypes
 import org.json4s.jackson.Serialization
 import sttp.client._

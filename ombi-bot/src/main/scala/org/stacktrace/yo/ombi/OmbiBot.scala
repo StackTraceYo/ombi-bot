@@ -20,11 +20,18 @@ import sttp.client.{Identity, Response, ResponseError}
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, Future, Promise}
+import scala.io.Source
 import scala.language.postfixOps
 import scala.util.Try
 
 
-class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
+class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
+
+
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.TRACE
+
 
   type Searcher[A] = String => Identity[Response[Either[ResponseError[Exception], Seq[A]]]]
   type ResultMapper[A] = Seq[A] => (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])
@@ -32,8 +39,8 @@ class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) 
   type AvailMessageMaker = Option[Seq[AvailMediaData]] => Option[SendMessage]
   type MediaRequester = String => Identity[Response[Either[String, String]]]
 
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.TRACE
+
+
   private val M = 0
   private val T = 0
   private val M_TAG = "M_TAG"
@@ -145,7 +152,7 @@ class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) 
     ).void
 
     cbq.data.map(data => {
-     reply("Requesting...")(msg).map(rm => {
+      reply("Requesting...")(msg).map(rm => {
         after(duration = 5 seconds) {
           request(DeleteMessage(ChatId(rm.source), rm.messageId))
         }
@@ -157,10 +164,12 @@ class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) 
       request(lr._1).map(_ => {
         val pushText = media.map(m => {
           s"Received Request for ${m.requestName} ${imdbLink(m.imdb)}"
-        }).getOrElse( s"*Request for ${name} received*")
+        }).getOrElse(s"*Request for ${name} received*")
         after(duration = 5 seconds) {
           if (lr._2) {
-            request(SendMessage(ChatId(push), pushText, parseMode = Some(ParseMode.Markdown), disableWebPagePreview = Some(true)))
+            push.foreach(p => {
+              request(SendMessage(ChatId(p), pushText, parseMode = Some(ParseMode.Markdown), disableWebPagePreview = Some(true)))
+            })
           }
         }
       })
@@ -218,7 +227,6 @@ class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) 
   private val tvdbLink: String => String = (id: String) => s"https://www.thetvdb.com/?id=${id}&tab=series"
 
   private val imdbLink: String => String = (id: String) => s"https://www.imdb.com/title/$id"
-
 
 
   private val movieTag: String => String = prefixTag(M_TAG)
@@ -333,15 +341,60 @@ class OmbiBot(val token: String, val push: Long)(implicit val ombi: OmbiParams) 
   }
 }
 
-abstract class PushNotificationBot(chat: Long)(implicit val ombi: OmbiParams) extends TelegramBot with Polling {
+object OmbiBotRunner extends App {
+
+  val config = ConfigLoader(args = args)
+  implicit val ombi: OmbiParams = config.ombi
+  val bot = new OmbiBot(config.botName, config.botToken, Option.empty)
+  val eol = bot.run()
+  Await.result(eol, Duration.Inf)
 }
 
-object OmbiBot extends App {
-  // To run spawn the bot
-  val eol = bot.run()
-  println("Press [ENTER] to shutdown the bot, it may take a few seconds...")
-  scala.io.StdIn.readLine()
-  bot.shutdown() // initiate shutdown
-  // Wait for the bot end-of-life
-  Await.result(eol, Duration.Inf)
+
+case class CMDLineConfig(file: Option[String] = Option.empty)
+
+object ConfigLoader {
+
+  case class BotConfig(botName: String, botToken: String, ombi: OmbiParams)
+
+  def apply(args: Seq[String]): BotConfig = {
+    import scala.collection.JavaConverters._
+
+    val parser = new scopt.OptionParser[CMDLineConfig]("ombi-bot") {
+      head("ombi-bot", "2.0")
+
+      opt[String]('p', "params")
+        .valueName("<param file>")
+        .action((f, c) => c.copy(file = Some(f)))
+        .text("Parameter is a path to the env file")
+    }
+
+    val params = parser.parse(args, CMDLineConfig())
+      .map(config => {
+        if (config.file.isDefined) {
+          val source = Source.fromFile(config.file.get, "utf-8")
+          val params = source.getLines()
+            .map(line => Seq(line.trim.split("=") : _*))
+            .filter(line => line.length == 2)
+            .map(seq => (seq.head, seq.last))
+            .toMap
+          source.close()
+          params
+        } else {
+          System.getenv().asScala
+        }
+      }).getOrElse(System.getenv().asScala)
+
+    val ombiHost = params.getOrElse("OMBI_HOST", throw new IllegalArgumentException("ENV file is missing Missing OMBI_HOST"))
+    val ombiKey = params.getOrElse("OMBI_KEY", throw new IllegalArgumentException("ENV file is missing Missing OMBI_KEY"))
+    val botToken = params.getOrElse("BOT_TOKEN", throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN"))
+    val botName = params.getOrElse("BOT_NAME", throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME"))
+    val user = params.get("OMBI_USER_NAME")
+
+    BotConfig(
+      botName = botName,
+      botToken = botToken,
+      ombi = OmbiParams(ombiHost, ombiKey, user)
+    )
+  }
 }
