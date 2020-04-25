@@ -32,8 +32,8 @@ How to run
 ``` 	
 OMBI_HOST=<http://www.ombiserver.com:9090> // The url to ombi instance
 OMBI_KEY=<ombi api key> // ombi api key
-BOT_TOKEN=<telegram token> // telegram bot token
-BOT_NAME=<telegram bot name> // name of telegram bot
+OMBI_BOT_TOKEN=<telegram token> // telegram bot token
+OMBI_BOT_NAME=<telegram bot name> // name of telegram bot
 OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username 
 ```
 * the run (bot.env is ex env filename)
