@@ -40,7 +40,9 @@ OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username
 
 ##### with docker
 
-`docker run --env-file bot.env -d  stacktraceyo/ombi-bot`
+`docker run --env-file bot.env -d  stacktraceyo/ombi-bot:2.0` for 2.0
+`docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest` for the latest changes
+`docker run --env-file bot.env -d  stacktraceyo/ombi-bot:1.2` for 1.X release
 
 
 ##### without docker
