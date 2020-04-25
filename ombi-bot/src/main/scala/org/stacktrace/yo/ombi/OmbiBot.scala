@@ -387,8 +387,8 @@ object ConfigLoader {
 
     val ombiHost = params.getOrElse("OMBI_HOST", throw new IllegalArgumentException("ENV file is missing Missing OMBI_HOST"))
     val ombiKey = params.getOrElse("OMBI_KEY", throw new IllegalArgumentException("ENV file is missing Missing OMBI_KEY"))
-    val botToken = params.getOrElse("BOT_TOKEN", throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN"))
-    val botName = params.getOrElse("BOT_NAME", throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME"))
+    val botToken = params.getOrElse("BOT_TOKEN", params.getOrElse("OMBI_BOT_TOKEN" , throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN or OMBI_BOT_TOKEN")))
+    val botName = params.getOrElse("BOT_NAME", params.getOrElse("OMBI_BOT_NAME" , throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME or OMBI_BOT_NAME")))
     val user = params.get("OMBI_USER_NAME")
 
     BotConfig(
