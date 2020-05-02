@@ -12,8 +12,13 @@ Telegram bot for Ombi Requests
 * /searchtv TV show name or imdb url
 * /search Search both Movie and TV show name or imdb url
 * /info
+* /authinfo
 
-## auth commands:
+## auth commands: 
+(admin can only run these)
+* /register registers the current chat
+* /unregister unregisters the current chat
+* /unregisterall removes all chats
 * /authorize <user id> authorizes a user to make requests
 * /unauthorize <user id> removes the user from allowed requesters
 * /unauthorizeall removes all users other than the admin
@@ -28,6 +33,17 @@ in your env file, if you provide the BOT_ADMIN env variable with a user id,
 then authorization will be enabled on bot start, and that user id will be considered admin.
 the admin will have to add users, to allow them to make request commands.
 
+additionally, admin will have to register and unregister chats to use the bot
+
+here is a table
+
+              BOT_ADMIN    BOT_CHAT_ID    registration    auth       who_can_search
+    defined   yes           yes            yes             yes       users in a registered chat and authorized, initialized with BOT_CHAT_ID
+    defined   yes           no             yes             yes       users in a registered chat and authorized
+    defined   no            yes            no              no        users in the chat from BOT_CHAT_ID
+    defined   no            no             no              no        anyone
+
+- if you do not have BOT_ADMIN AND have a BOT_CHAT_ID then everyone in that chat only will be allowed to use the bot.
 - if BOT_ADMIN is not set, no authorization is done - and cannot be turned on.
 - you can disable or enable the authorization support only if there is an admin.
 - toggling using the /authon and /authoff commands does not clear the authorized users
@@ -59,7 +75,8 @@ OMBI_KEY=<ombi api key> // ombi api key
 OMBI_BOT_TOKEN=<telegram token> // telegram bot token
 OMBI_BOT_NAME=<telegram bot name> // name of telegram bot
 OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username
-BOT_ADMIN=<admin user id> (OPTIONAL) // admin user id - see authorization section 
+BOT_ADMIN=<admin user id> (OPTIONAL) // admin user id - see authorization section
+BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section 
 ```
 * the run (bot.env is ex env filename)
 

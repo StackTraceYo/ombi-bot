@@ -13,6 +13,7 @@ import com.bot4s.telegram.clients.ScalajHttpClient
 import com.bot4s.telegram.future.{Polling, TelegramBot}
 import com.bot4s.telegram.methods.{DeleteMessage, ParseMode, SendMessage}
 import com.bot4s.telegram.models._
+import org.stacktrace.yo.ombi.ConfigLoader.BotConfig
 import org.stacktrace.yo.ombi.OmbiAPI.{OmbiMovieSearchResult, OmbiParams, OmbiTVSearchResult}
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 import sttp.client.{Identity, Response, ResponseError}
@@ -25,8 +26,13 @@ import scala.language.postfixOps
 import scala.util.Try
 
 
-class OmbiBot(val name: String, val token: String, val admin: Option[Int], push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] with BotAuthorization {
+class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] with BotAuthorization {
 
+  implicit val ombi: OmbiParams = config.ombi
+  private val token: String = config.botToken
+  private val push: Option[Long] = Option.empty
+
+  val name: String = config.botName
 
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.TRACE
@@ -351,7 +357,8 @@ class OmbiBot(val name: String, val token: String, val admin: Option[Int], push:
 trait BotAuthorization {
   self: OmbiBot =>
 
-  val admin: Option[Int]
+  val chatId: Option[Long] = config.botChatId
+  val admin: Option[Int] = config.botAdmin
 
   private val AUTH_INFO = "authinfo"
 
@@ -360,19 +367,28 @@ trait BotAuthorization {
   private val UNAUTHORIZE_ALL = "unauthorizeall"
   private val ENABLE_AUTH = "authon"
   private val DISABLE_AUTH = "authoff"
+  private val REGISTER = "register"
+  private val UNREGISTER = "unregister"
+  private val UNREGISTER_ALL = "unregisterall"
 
   private val authInfo =
     """
        *If Authorization is enabled* :
 
        Users will *not* be able to make requests
-       until they are added
+       until they are added and the chat is registered
+
+       - /register  will register the current chat
+       - /unregister will unregister the current chat
+       - /unregisterall will unregister all chats
 
        - /authorize <user id>
        - /unauthorize <user id>
        - /unauthorizeall
-       - /authoff  - disable auth
-       - /authon  - enable auth
+
+       - /authoff  - disable user auth
+       - /authon  - enable user auth
+
 
        Notes:
        - toggling authorization does not remove authorized users
@@ -382,6 +398,7 @@ trait BotAuthorization {
   """
 
   private var authorizationEnabled: Boolean = admin.isDefined
+  private val chatAuthorizationEnabled: Boolean = authorizationEnabled || chatId.isDefined
   private val authorizedUsers: mutable.Set[Int] = if (authorizationEnabled) {
     val set = new mutable.HashSet[Int]()
     set.add(admin.get)
@@ -389,18 +406,43 @@ trait BotAuthorization {
   } else {
     null
   }
+  private val authorizedChats: mutable.Set[Long] = if (chatAuthorizationEnabled) {
+    chatId.map(id => {
+      val set = new mutable.HashSet[Long]()
+      set.add(id)
+      set
+    }).getOrElse(new mutable.HashSet[Long]())
+  } else {
+    null
+  }
   private val disableAuth: () => Unit = () => authorizationEnabled = false
   private val enableAuth: () => Unit = () => authorizationEnabled = true
-  private val addToAuth: Int => Int = (id: Int) => if (authorizationEnabled) {
-    authorizedUsers.add(id)
-    id
-  } else {
+
+  private def addChatAuth(id: Long): Long = {
+    if (chatAuthorizationEnabled) {
+      authorizedChats.add(id)
+    }
     id
   }
-  private val removeFromAuth: Int => Int = (id: Int) => if (authorizationEnabled) {
-    authorizedUsers.remove(id)
+
+  private def removeChatAuth(id: Long): Long = {
+    if (chatAuthorizationEnabled) {
+      authorizedChats.remove(id)
+    }
     id
-  } else {
+  }
+
+  private def addToAuth(id: Int): Int = {
+    if (authorizationEnabled) {
+      authorizedUsers.add(id)
+    }
+    id
+  }
+
+  private def removeFromAuth(id: Int): Int = {
+    if (authorizationEnabled) {
+      authorizedUsers.remove(id)
+    }
     id
   }
 
@@ -432,6 +474,25 @@ trait BotAuthorization {
     })(msg)
   }
 
+  onCommand(REGISTER) { implicit msg =>
+    regAction(() => {
+      replyMd(s"Registered Chat ${addChatAuth(msg.chat.id)}")
+    })
+  }
+
+  onCommand(UNREGISTER) { implicit msg =>
+    regAction(() => {
+      replyMd(s"Unregistered Chat ${removeChatAuth(msg.chat.id)}")
+    })
+  }
+
+  onCommand(UNREGISTER_ALL) { implicit msg =>
+    regAction(() => {
+      authorizedChats.clear()
+      replyMd(s"Registrations cleared")
+    })(msg)
+  }
+
   onCommand(DISABLE_AUTH) { implicit msg =>
     setAuth(on = false)(msg)
   }
@@ -445,33 +506,53 @@ trait BotAuthorization {
   }
 
   def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
-    if (authorizationEnabled) {
-      if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
-        run()
+    val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
+    if (chatEnabled) {
+      if (authorizationEnabled) {
+        if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
+          run()
+        } else {
+          deleteAfter(replyMd("You are not not authorized to make requests"))
+        }
       } else {
-        deleteAfter(replyMd("You are not not authorized to make requests"))
+        run()
       }
     } else {
-      run()
+      deleteAfter(replyMd("This chat is not registered to use this bot"))
     }
   }
 
+  private def regAction(action: () => Future[Message])(implicit msg: Message): Future[Unit] = {
+    val isAdmin: Boolean = msg.from.map(_.id).exists(id => admin.contains(id))
+    val replyMessage = if (isAdmin && chatAuthorizationEnabled) {
+      action()
+    } else {
+      replyMd("You are not authorized to make this request")
+    }
+    deleteAfter(replyMessage)
+  }
+
   private def authAction(action: () => Future[Message])(implicit msg: Message): Future[Unit] = {
-    val isAdmin = msg.from.map(_.id).map(id => admin.contains(id)).isDefined
-    val replyMessage = if (authorizationEnabled || isAdmin) {
-      if (isAdmin) {
-        action()
+    val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
+    val replyMessage = if (chatEnabled) {
+      val isAdmin: Boolean = msg.from.map(_.id).exists(id => admin.contains(id))
+      if (authorizationEnabled || isAdmin) {
+        if (isAdmin) {
+          action()
+        } else {
+          replyMd("You are not authorized to make this request")
+        }
       } else {
-        replyMd("You are not authorized to make this request")
+        replyMd("Authorization not enabled")
       }
     } else {
-      replyMd("Authorization not enabled")
+      replyMd("This chat is not registered to use this bot")
     }
     deleteAfter(replyMessage)
   }
 
   private def setAuth(on: Boolean)(implicit msg: Message): Future[Unit] = {
-    val isAdmin = msg.from.map(_.id).map(id => admin.contains(id)).isDefined
+    val isAdmin: Boolean = msg.from.map(_.id).exists(id => admin.contains(id))
     val replyMessage = if (isAdmin) {
       val txt = if (on) {
         enableAuth()
@@ -497,8 +578,7 @@ trait BotAuthorization {
 object OmbiBotRunner extends App {
 
   val config = ConfigLoader(args = args)
-  implicit val ombi: OmbiParams = config.ombi
-  val bot = new OmbiBot(config.botName, config.botToken, config.botAdmin, Option.empty)
+  val bot = new OmbiBot(config)
   val eol = bot.run()
   Await.result(eol, Duration.Inf)
 }
@@ -508,7 +588,7 @@ case class CMDLineConfig(file: Option[String] = Option.empty)
 
 object ConfigLoader {
 
-  case class BotConfig(botName: String, botToken: String, botAdmin: Option[Int], ombi: OmbiParams)
+  case class BotConfig(botName: String, botToken: String, botChatId: Option[Long], botAdmin: Option[Int], ombi: OmbiParams)
 
   def apply(args: Seq[String]): BotConfig = {
     import scala.collection.JavaConverters._
@@ -543,12 +623,14 @@ object ConfigLoader {
     val ombiKey = params.getOrElse("OMBI_KEY", throw new IllegalArgumentException("ENV file is missing Missing OMBI_KEY"))
     val botToken = params.getOrElse("BOT_TOKEN", params.getOrElse("OMBI_BOT_TOKEN", throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN or OMBI_BOT_TOKEN")))
     val botName = params.getOrElse("BOT_NAME", params.getOrElse("OMBI_BOT_NAME", throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME or OMBI_BOT_NAME")))
+    val botChatId = params.get("BOT_CHAT_ID").flatMap(s => Try(s.toLong).toOption)
     val adminId = params.get("BOT_ADMIN").flatMap(s => Try(s.toInt).toOption)
 
     BotConfig(
       botName = botName,
       botToken = botToken,
       botAdmin = adminId,
+      botChatId = botChatId,
       ombi = OmbiParams(ombiHost, ombiKey, user)
     )
   }
