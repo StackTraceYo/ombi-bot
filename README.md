@@ -84,9 +84,9 @@ BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section
 
 available tags:  2.0 , 1.2, latest
 
-for 2.0 run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:2.1` 
+for the latest changes (off master) run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest`
 
-for the latest changes (off master) run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest` 
+for 2.0 run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:2.0` 
 
 for 1.X release run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:1.2` 
 
@@ -96,7 +96,7 @@ for 1.X release run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:1.2
 * install java version 8+ and maven
 * clone project `git clone https://github.com/StackTraceYo/ombi-bot`
 * cd into directory and run `mvn clean install`
-* get the output jar at `ombi-bot/bots/target/plexbot.jar`
+* get the output jar at `ombi-bot/ombi-bot/target/ombibot.jar`
 * run the jar directly with the env file (bot.env is ex env filename)
 
 `java -jar ombibot.jar -p full/path/to/bot.env`
