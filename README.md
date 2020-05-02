@@ -13,6 +13,30 @@ Telegram bot for Ombi Requests
 * /search Search both Movie and TV show name or imdb url
 * /info
 
+## auth commands:
+* /authorize <user id> authorizes a user to make requests
+* /unauthorize <user id> removes the user from allowed requesters
+* /unauthorizeall removes all users other than the admin
+* /authon enables authorization
+* /authoff disables authorization (authorized users will stay authorized if toggled back on)
+
+
+
+## authorization notes:
+
+in your env file, if you provide the BOT_ADMIN env variable with a user id,
+then authorization will be enabled on bot start, and that user id will be considered admin.
+the admin will have to add users, to allow them to make request commands.
+
+- if BOT_ADMIN is not set, no authorization is done - and cannot be turned on.
+- you can disable or enable the authorization support only if there is an admin.
+- toggling using the /authon and /authoff commands does not clear the authorized users
+- only the admin can use the authorization commands, meaning if you put it in wrong. you will be locked out and the bot 
+  will not be usable.
+
+you can get your user id from the @userinfobot.
+
+
 ### warning :
 * requesting a tv show currently requests all seasons
 
@@ -34,7 +58,8 @@ OMBI_HOST=<http://www.ombiserver.com:9090> // The url to ombi instance
 OMBI_KEY=<ombi api key> // ombi api key
 OMBI_BOT_TOKEN=<telegram token> // telegram bot token
 OMBI_BOT_NAME=<telegram bot name> // name of telegram bot
-OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username 
+OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username
+BOT_ADMIN=<admin user id> (OPTIONAL) // admin user id - see authorization section 
 ```
 * the run (bot.env is ex env filename)
 

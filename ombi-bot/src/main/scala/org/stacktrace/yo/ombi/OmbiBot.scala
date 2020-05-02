@@ -25,8 +25,7 @@ import scala.language.postfixOps
 import scala.util.Try
 
 
-class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] {
-
+class OmbiBot(val name: String, val token: String, val admin: Option[Long], push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] with BotAuthorization {
 
 
   LoggerConfig.factory = PrintLoggerFactory()
@@ -38,7 +37,6 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
   type MessageMaker = Option[Seq[MediaRequestData]] => Option[Seq[SendMessage]]
   type AvailMessageMaker = Option[Seq[AvailMediaData]] => Option[SendMessage]
   type MediaRequester = String => Identity[Response[Either[String, String]]]
-
 
 
   private val M = 0
@@ -63,39 +61,51 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
        Example: */search batman*
 
      - /info to see this message
+     - /authinfo to see this authorization message
 
      - Note: Both search commands work with imdb urls
 
        Example: */searchtv https://www.imdb.com/title/tt6751668*
     """
 
+
   private val chatState: mutable.Map[Long, Seq[Int]] = collection.mutable.Map[Long, Seq[Int]]()
   private val requestIdState: mutable.Map[String, MediaRequestData] = collection.mutable.Map[String, MediaRequestData]()
   override val client: RequestHandler[Future] = new ScalajHttpClient(token)
 
+  def tryToLong(s: String): Option[Long] = Try(s.toLong).toOption
 
   scheduleClear()
 
   onCommand(SEARCH_TV) { implicit msg =>
-    runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)
+    authenticateAndRun {
+      () => runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)
+    }
   }
 
   onCommand(SEARCH_ALL) { implicit msg =>
-    sequentialSendAndSaveMessageId(
-      Seq(SendMessage(msg.source, "*Searching Movies and TV*", parseMode = Some(ParseMode.Markdown), disableNotification = Some(true)))
-    ).map(ids => chatState(msg.source) = ids)
-      .flatMap(_ => runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
-        .flatMap(_ => runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)))
+    authenticateAndRun {
+      () => {
+        sequentialSendAndSaveMessageId(
+          Seq(SendMessage(msg.source, "*Searching Movies and TV*", parseMode = Some(ParseMode.Markdown), disableNotification = Some(true)))
+        ).map(ids => chatState(msg.source) = ids)
+          .flatMap(_ => runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
+            .flatMap(_ => runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)))
+      }
+    }
 
   }
 
   onCommand(SEARCH_MOVIE) { implicit msg =>
-    runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
+    authenticateAndRun {
+      () => runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
+    }
   }
 
   onCommand(INFO) { implicit msg =>
     replyMd(info, disableWebPagePreview = Some(true)).void
   }
+
 
   onCallbackWithTag(T_TAG) { implicit cbq =>
     callback(cbq, OmbiAPI.requestTV)
@@ -115,10 +125,7 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
     withArgs { args =>
       val query = args.mkString(" ")
       val parsed = if (IMDBSearch.looksLike(query)) {
-        request(textMD("*IMDB link detected...*")).map(im =>
-          after(duration = 2 seconds) {
-            request(DeleteMessage(ChatId(im.source), im.messageId))
-          })
+        deleteAfter(request(textMD("*IMDB link detected...*")), 2 seconds)
         IMDBSearch(query)
       } else {
         query
@@ -152,11 +159,7 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
     ).void
 
     cbq.data.map(data => {
-      reply("Requesting...")(msg).map(rm => {
-        after(duration = 5 seconds) {
-          request(DeleteMessage(ChatId(rm.source), rm.messageId))
-        }
-      }).void
+      deleteAfter(reply("Requesting...")(msg))
       val media: Option[MediaRequestData] = requestIdState.remove(data)
       val name = media.map(_.requestName).getOrElse("Unknown")
       val lr = requester(data).body.fold(_ => (textMD("*Error Requesting*")(msg), false), _ => (textMD(s"*Successfully Requested ${name}*")(msg), true))
@@ -176,11 +179,7 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
     })
       .getOrElse({
         runDeleteAll()
-        request(textMD("Hm something went wrong")(msg)).map(resMsg => {
-          after(duration = 5 seconds) {
-            request(DeleteMessage(ChatId(resMsg.source), resMsg.messageId))
-          }
-        })
+        deleteAfter(request(textMD("Hm something went wrong")(msg)))
       }
       ).void
   }
@@ -339,13 +338,175 @@ class OmbiBot(val name: String, val token: String, push: Option[Long])(implicit 
     }, duration.toMillis)
     promise.future
   }
+
+  def deleteAfter(initial: Future[Message], duration: Duration = 5 seconds): Future[Unit] = {
+    initial.flatMap((msg: Message) => {
+      after(duration = duration) {
+        request(DeleteMessage(ChatId(msg.source), msg.messageId))
+      }
+    }).void
+  }
+}
+
+trait BotAuthorization {
+  self: OmbiBot =>
+
+  val admin: Option[Long]
+
+  private val AUTH_INFO = "authinfo"
+
+  private val AUTHORIZE = "authorize"
+  private val UNAUTHORIZE = "unauthorize"
+  private val UNAUTHORIZE_ALL = "unauthorizeall"
+  private val ENABLE_AUTH = "authon"
+  private val DISABLE_AUTH = "authoff"
+
+  private val authInfo =
+    """
+       *If Authorization is enabled* :
+
+       Users will *not* be able to make requests
+       until they are added
+
+       - /authorize <user id>
+       - /unauthorize <user id>
+       - /unauthorizeall
+       - /authoff  - disable auth
+       - /authon  - enable auth
+
+       Notes:
+       - toggling authorization does not remove authorized users
+
+       Users can get there id from the @userinfobot
+
+  """
+
+  var authorizationEnabled: Boolean = admin.isDefined
+
+  def disableAuth(): Unit = {
+    authorizationEnabled = false
+  }
+
+  def enableAuth(): Unit = {
+    authorizationEnabled = true
+  }
+
+  val authorizedUsers: mutable.Set[Long] = if (authorizationEnabled) {
+    val set = new mutable.HashSet[Long]()
+    set.add(admin.get)
+    set
+  } else {
+    null
+  }
+
+  def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
+    if (authorizationEnabled) {
+      if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
+        run()
+      } else {
+        deleteAfter(replyMd("You are not not authorized to make requests"))
+      }
+    } else {
+      run()
+    }
+  }
+
+  val addToAuth: Long => Long = (id: Long) => if (authorizationEnabled) {
+    authorizedUsers.add(id)
+    id
+  } else {
+    id
+  }
+
+  val removeFromAuth: Long => Long = (id: Long) => if (authorizationEnabled) {
+    authorizedUsers.remove(id)
+    id
+  } else {
+    id
+  }
+
+  onCommand(AUTHORIZE) { implicit msg =>
+    withArgs { args =>
+      authAction(() => {
+        args.headOption.flatMap(tryToLong)
+          .map(id => replyMd(s"Authorized User ${addToAuth(id)}"))
+          .getOrElse(replyMd("Invalid arguments for authorization"))
+      })
+    }
+  }
+
+  onCommand(UNAUTHORIZE) { implicit msg =>
+    withArgs { args =>
+      authAction(() => {
+        args.headOption.flatMap(tryToLong)
+          .map(id => replyMd(s"Unauthorized User ${removeFromAuth(id)}"))
+          .getOrElse(replyMd("Invalid arguments for authorization"))
+      })
+    }
+  }
+
+  onCommand(UNAUTHORIZE_ALL) { implicit msg =>
+    authAction(() => {
+      authorizedUsers.clear()
+      authorizedUsers.add(admin.get)
+      replyMd(s"Authorizations reset")
+    })(msg)
+  }
+
+  onCommand(DISABLE_AUTH) { implicit msg =>
+    setAuth(on = false)(msg)
+  }
+
+  onCommand(ENABLE_AUTH) { implicit msg =>
+    setAuth(on = true)(msg)
+  }
+
+  private def authAction(action: () => Future[Message])(implicit msg: Message): Future[Unit] = {
+    val isAdmin = msg.from.map(_.id).map(id => admin.contains(id)).isDefined
+    val replyMessage = if (authorizationEnabled || isAdmin) {
+      if (isAdmin) {
+        action()
+      } else {
+        replyMd("You are not authorized to make this request")
+      }
+    } else {
+      replyMd("Authorization not enabled")
+    }
+    deleteAfter(replyMessage)
+  }
+
+  private def setAuth(on: Boolean)(implicit msg: Message): Future[Unit] = {
+    val isAdmin = msg.from.map(_.id).map(id => admin.contains(id)).isDefined
+    val replyMessage = if (isAdmin) {
+      val txt = if (on) {
+        enableAuth()
+        "Enabled"
+      } else {
+        disableAuth()
+        "Disabled"
+      }
+      replyMd(s"Authorization ${txt}")
+    } else {
+      if (admin.isDefined) {
+        replyMd("You are not authorized to make this request")
+      } else {
+        replyMd("Authorization support is not available without an admin")
+      }
+    }
+    deleteAfter(replyMessage)
+  }
+
+  onCommand(AUTH_INFO) { implicit msg =>
+    replyMd(authInfo, disableWebPagePreview = Some(true)).void
+  }
+
 }
 
 object OmbiBotRunner extends App {
 
   val config = ConfigLoader(args = args)
   implicit val ombi: OmbiParams = config.ombi
-  val bot = new OmbiBot(config.botName, config.botToken, Option.empty)
+  val bot = new OmbiBot(config.botName, config.botToken, config.botAdmin, Option.empty)
   val eol = bot.run()
   Await.result(eol, Duration.Inf)
 }
@@ -355,7 +516,7 @@ case class CMDLineConfig(file: Option[String] = Option.empty)
 
 object ConfigLoader {
 
-  case class BotConfig(botName: String, botToken: String, ombi: OmbiParams)
+  case class BotConfig(botName: String, botToken: String, botAdmin: Option[Long], ombi: OmbiParams)
 
   def apply(args: Seq[String]): BotConfig = {
     import scala.collection.JavaConverters._
@@ -374,7 +535,7 @@ object ConfigLoader {
         if (config.file.isDefined) {
           val source = Source.fromFile(config.file.get, "utf-8")
           val params = source.getLines()
-            .map(line => Seq(line.trim.split("=") : _*))
+            .map(line => Seq(line.trim.split("="): _*))
             .filter(line => line.length == 2)
             .map(seq => (seq.head, seq.last))
             .toMap
@@ -385,15 +546,17 @@ object ConfigLoader {
         }
       }).getOrElse(System.getenv().asScala)
 
+    val user = params.get("OMBI_USER_NAME")
     val ombiHost = params.getOrElse("OMBI_HOST", throw new IllegalArgumentException("ENV file is missing Missing OMBI_HOST"))
     val ombiKey = params.getOrElse("OMBI_KEY", throw new IllegalArgumentException("ENV file is missing Missing OMBI_KEY"))
-    val botToken = params.getOrElse("BOT_TOKEN", params.getOrElse("OMBI_BOT_TOKEN" , throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN or OMBI_BOT_TOKEN")))
-    val botName = params.getOrElse("BOT_NAME", params.getOrElse("OMBI_BOT_NAME" , throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME or OMBI_BOT_NAME")))
-    val user = params.get("OMBI_USER_NAME")
+    val botToken = params.getOrElse("BOT_TOKEN", params.getOrElse("OMBI_BOT_TOKEN", throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN or OMBI_BOT_TOKEN")))
+    val botName = params.getOrElse("BOT_NAME", params.getOrElse("OMBI_BOT_NAME", throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME or OMBI_BOT_NAME")))
+    val adminId = params.get("BOT_ADMIN").map(_.toLong)
 
     BotConfig(
       botName = botName,
       botToken = botToken,
+      botAdmin = adminId,
       ombi = OmbiParams(ombiHost, ombiKey, user)
     )
   }
