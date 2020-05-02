@@ -25,7 +25,7 @@ import scala.language.postfixOps
 import scala.util.Try
 
 
-class OmbiBot(val name: String, val token: String, val admin: Option[Long], push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] with BotAuthorization {
+class OmbiBot(val name: String, val token: String, val admin: Option[Int], push: Option[Long])(implicit val ombi: OmbiParams) extends TelegramBot with Polling with Callbacks[Future] with Commands[Future] with BotAuthorization {
 
 
   LoggerConfig.factory = PrintLoggerFactory()
@@ -73,7 +73,7 @@ class OmbiBot(val name: String, val token: String, val admin: Option[Long], push
   private val requestIdState: mutable.Map[String, MediaRequestData] = collection.mutable.Map[String, MediaRequestData]()
   override val client: RequestHandler[Future] = new ScalajHttpClient(token)
 
-  def tryToLong(s: String): Option[Long] = Try(s.toLong).toOption
+  def tryToLong(s: String): Option[Int] = Try(s.toInt).toOption
 
   scheduleClear()
 
@@ -351,7 +351,7 @@ class OmbiBot(val name: String, val token: String, val admin: Option[Long], push
 trait BotAuthorization {
   self: OmbiBot =>
 
-  val admin: Option[Long]
+  val admin: Option[Int]
 
   private val AUTH_INFO = "authinfo"
 
@@ -381,44 +381,23 @@ trait BotAuthorization {
 
   """
 
-  var authorizationEnabled: Boolean = admin.isDefined
-
-  def disableAuth(): Unit = {
-    authorizationEnabled = false
-  }
-
-  def enableAuth(): Unit = {
-    authorizationEnabled = true
-  }
-
-  val authorizedUsers: mutable.Set[Long] = if (authorizationEnabled) {
-    val set = new mutable.HashSet[Long]()
+  private var authorizationEnabled: Boolean = admin.isDefined
+  private val authorizedUsers: mutable.Set[Int] = if (authorizationEnabled) {
+    val set = new mutable.HashSet[Int]()
     set.add(admin.get)
     set
   } else {
     null
   }
-
-  def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
-    if (authorizationEnabled) {
-      if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
-        run()
-      } else {
-        deleteAfter(replyMd("You are not not authorized to make requests"))
-      }
-    } else {
-      run()
-    }
-  }
-
-  val addToAuth: Long => Long = (id: Long) => if (authorizationEnabled) {
+  private val disableAuth: () => Unit = () => authorizationEnabled = false
+  private val enableAuth: () => Unit = () => authorizationEnabled = true
+  private val addToAuth: Int => Int = (id: Int) => if (authorizationEnabled) {
     authorizedUsers.add(id)
     id
   } else {
     id
   }
-
-  val removeFromAuth: Long => Long = (id: Long) => if (authorizationEnabled) {
+  private val removeFromAuth: Int => Int = (id: Int) => if (authorizationEnabled) {
     authorizedUsers.remove(id)
     id
   } else {
@@ -461,6 +440,22 @@ trait BotAuthorization {
     setAuth(on = true)(msg)
   }
 
+  onCommand(AUTH_INFO) { implicit msg =>
+    replyMd(authInfo, disableWebPagePreview = Some(true)).void
+  }
+
+  def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
+    if (authorizationEnabled) {
+      if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
+        run()
+      } else {
+        deleteAfter(replyMd("You are not not authorized to make requests"))
+      }
+    } else {
+      run()
+    }
+  }
+
   private def authAction(action: () => Future[Message])(implicit msg: Message): Future[Unit] = {
     val isAdmin = msg.from.map(_.id).map(id => admin.contains(id)).isDefined
     val replyMessage = if (authorizationEnabled || isAdmin) {
@@ -496,9 +491,6 @@ trait BotAuthorization {
     deleteAfter(replyMessage)
   }
 
-  onCommand(AUTH_INFO) { implicit msg =>
-    replyMd(authInfo, disableWebPagePreview = Some(true)).void
-  }
 
 }
 
@@ -516,7 +508,7 @@ case class CMDLineConfig(file: Option[String] = Option.empty)
 
 object ConfigLoader {
 
-  case class BotConfig(botName: String, botToken: String, botAdmin: Option[Long], ombi: OmbiParams)
+  case class BotConfig(botName: String, botToken: String, botAdmin: Option[Int], ombi: OmbiParams)
 
   def apply(args: Seq[String]): BotConfig = {
     import scala.collection.JavaConverters._
@@ -551,7 +543,7 @@ object ConfigLoader {
     val ombiKey = params.getOrElse("OMBI_KEY", throw new IllegalArgumentException("ENV file is missing Missing OMBI_KEY"))
     val botToken = params.getOrElse("BOT_TOKEN", params.getOrElse("OMBI_BOT_TOKEN", throw new IllegalArgumentException("ENV file is missing Missing BOT_TOKEN or OMBI_BOT_TOKEN")))
     val botName = params.getOrElse("BOT_NAME", params.getOrElse("OMBI_BOT_NAME", throw new IllegalArgumentException("ENV file is missing Missing BOT_NAME or OMBI_BOT_NAME")))
-    val adminId = params.get("BOT_ADMIN").map(_.toLong)
+    val adminId = params.get("BOT_ADMIN").flatMap(s => Try(s.toInt).toOption)
 
     BotConfig(
       botName = botName,
