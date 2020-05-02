@@ -168,12 +168,12 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
       deleteAfter(reply("Requesting...")(msg))
       val media: Option[MediaRequestData] = requestIdState.remove(data)
       val name = media.map(_.requestName).getOrElse("Unknown")
-      val lr = requester(data).body.fold(_ => (textMD("*Error Requesting*")(msg), false), _ => (textMD(s"*Successfully Requested ${name}*")(msg), true))
+      val lr = requester(data).body.fold(_ => (textMD("*Error Requesting*")(msg), false), _ => (textMD(s"*Successfully Requested $name*")(msg), true))
       runDeleteAll()
       request(lr._1).map(_ => {
         val pushText = media.map(m => {
           s"Received Request for ${m.requestName} ${imdbLink(m.imdb)}"
-        }).getOrElse(s"*Request for ${name} received*")
+        }).getOrElse(s"*Request for $name received*")
         after(duration = 5 seconds) {
           if (lr._2) {
             push.foreach(p => {
@@ -227,9 +227,9 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
     }
   }
 
-  private val tmdbLink: String => String = (id: String) => s"https://www.themoviedb.org/movie/${id}"
+  private val tmdbLink: String => String = (id: String) => s"https://www.themoviedb.org/movie/$id"
 
-  private val tvdbLink: String => String = (id: String) => s"https://www.thetvdb.com/?id=${id}&tab=series"
+  private val tvdbLink: String => String = (id: String) => s"https://www.thetvdb.com/?id=$id&tab=series"
 
   private val imdbLink: String => String = (id: String) => s"https://www.imdb.com/title/$id"
 
@@ -509,7 +509,7 @@ trait BotAuthorization {
     val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
     if (chatEnabled) {
       if (authorizationEnabled) {
-        if (msg.from.map(_.id).map(id => authorizedUsers.contains(id)).isDefined) {
+        if (msg.from.map(_.id).exists(id => authorizedUsers.contains(id))) {
           run()
         } else {
           deleteAfter(replyMd("You are not not authorized to make requests"))
@@ -561,7 +561,7 @@ trait BotAuthorization {
         disableAuth()
         "Disabled"
       }
-      replyMd(s"Authorization ${txt}")
+      replyMd(s"Authorization $txt")
     } else {
       if (admin.isDefined) {
         replyMd("You are not authorized to make this request")
