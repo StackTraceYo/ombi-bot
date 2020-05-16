@@ -4,7 +4,7 @@
 <a href="https://www.buymeacoffee.com/stacktraceyo" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" ></a>
 
 Telegram bot for Ombi Requests
-- v2.0
+- v2.1-SNAPSHOT
 
 
 ## commands:
