@@ -119,7 +119,7 @@ object OmbiAPI {
       id
     }
 
-    def merge(r: OmbiMovieSearchResult) = {
+    def merge(r: OmbiMovieSearchResult): OmbiMovieSearchResult = {
       copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, imdbId = r.imdbId)
     }
   }
@@ -127,7 +127,7 @@ object OmbiAPI {
   case class OmbiTVSearchResult(theTvDbId: String, banner: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, firstAired: String, id: String, imdbId: String, seasonRequests: Seq[Season] = Seq()) {
     def isAvailable: Boolean = available || (plexUrl != null && plexUrl.nonEmpty)
 
-    def merge(r: OmbiTVSearchResult) = {
+    def merge(r: OmbiTVSearchResult): OmbiTVSearchResult = {
       copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, theTvDbId = r.theTvDbId, imdbId = r.imdbId)
     }
 
