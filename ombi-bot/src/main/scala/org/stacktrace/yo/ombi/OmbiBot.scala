@@ -609,7 +609,7 @@ object ConfigLoader {
     import scala.collection.JavaConverters._
 
     val parser = new scopt.OptionParser[CMDLineConfig]("ombi-bot") {
-      head("ombi-bot", "2.0")
+      head("ombi-bot", "2.1")
 
       opt[String]('p', "params")
         .valueName("<param file>")
