@@ -520,11 +520,14 @@ trait BotAuthorization {
 
   def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
     val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
-    val userAllowed = msg.from.map(_.id).exists(id => authorizedUsers.contains(id))
-    val bypass = msg.from.map(_.id).exists(id => authorizedUsers.get(id).contains(EXTERNAL))
+    val bypass = if (authorizedUsers != null) {
+      msg.from.map(_.id).exists(id => authorizedUsers.get(id).contains(EXTERNAL))
+    } else {
+      false
+    }
     if (chatEnabled || bypass) {
       if (authorizationEnabled) {
-        if (userAllowed) {
+        if (msg.from.map(_.id).exists(id => authorizedUsers.contains(id))) {
           run()
         } else {
           deleteAfter(replyMd("You are not not authorized to make requests"))
