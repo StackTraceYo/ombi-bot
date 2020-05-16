@@ -85,7 +85,7 @@ BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section
 
 ##### with docker
 
-available tags:  2.0 , 1.2, latest, 2.1-SNAPSHOT
+available tags:  2.0, 2.1,  1.2, latest
 
 for the latest changes (off master) run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest`
 
