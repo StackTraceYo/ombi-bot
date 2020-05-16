@@ -20,6 +20,7 @@ Telegram bot for Ombi Requests
 * /unregister unregisters the current chat
 * /unregisterall removes all chats
 * /authorize <user id> authorizes a user to make requests
+* /extauthorize <user id> authorizes a user to make requests in any chat (like private chat with bot)
 * /unauthorize <user id> removes the user from allowed requesters
 * /unauthorizeall removes all users other than the admin
 * /authon enables authorization

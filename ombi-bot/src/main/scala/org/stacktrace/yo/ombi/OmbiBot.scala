@@ -363,6 +363,7 @@ trait BotAuthorization {
   private val AUTH_INFO = "authinfo"
 
   private val AUTHORIZE = "authorize"
+  private val AUTHORIZE_EXTERNAL = "extauthorize"
   private val UNAUTHORIZE = "unauthorize"
   private val UNAUTHORIZE_ALL = "unauthorizeall"
   private val ENABLE_AUTH = "authon"
@@ -383,6 +384,7 @@ trait BotAuthorization {
        - /unregisterall will unregister all chats
 
        - /authorize <user id>
+       - /extauthorize <user id> this will authorize a user to use bot in any chat
        - /unauthorize <user id>
        - /unauthorizeall
 
@@ -396,13 +398,14 @@ trait BotAuthorization {
        Users can get there id from the @userinfobot
 
   """
-
+  private val EXTERNAL = "ext"
+  private val INTERNAL = "int"
   private var authorizationEnabled: Boolean = admin.isDefined
   private val chatAuthorizationEnabled: Boolean = authorizationEnabled || chatId.isDefined
-  private val authorizedUsers: mutable.Set[Int] = if (authorizationEnabled) {
-    val set = new mutable.HashSet[Int]()
-    set.add(admin.get)
-    set
+  private val authorizedUsers: mutable.Map[Int, String] = if (authorizationEnabled) {
+    val map = new mutable.HashMap[Int, String]()
+    map.put(admin.get, EXTERNAL)
+    map
   } else {
     null
   }
@@ -432,9 +435,9 @@ trait BotAuthorization {
     id
   }
 
-  private def addToAuth(id: Int): Int = {
+  private def addToAuth(id: Int, ext: String): Int = {
     if (authorizationEnabled) {
-      authorizedUsers.add(id)
+      authorizedUsers.put(id, ext)
     }
     id
   }
@@ -446,11 +449,21 @@ trait BotAuthorization {
     id
   }
 
+  onCommand(AUTHORIZE_EXTERNAL) { implicit msg =>
+    withArgs { args =>
+      authAction(() => {
+        args.headOption.flatMap(tryToLong)
+          .map(id => replyMd(s"Authorized User ${addToAuth(id, EXTERNAL)}"))
+          .getOrElse(replyMd("Invalid arguments for authorization"))
+      }, bypass = true)
+    }
+  }
+
   onCommand(AUTHORIZE) { implicit msg =>
     withArgs { args =>
       authAction(() => {
         args.headOption.flatMap(tryToLong)
-          .map(id => replyMd(s"Authorized User ${addToAuth(id)}"))
+          .map(id => replyMd(s"Authorized User ${addToAuth(id, INTERNAL)}"))
           .getOrElse(replyMd("Invalid arguments for authorization"))
       })
     }
@@ -469,7 +482,7 @@ trait BotAuthorization {
   onCommand(UNAUTHORIZE_ALL) { implicit msg =>
     authAction(() => {
       authorizedUsers.clear()
-      authorizedUsers.add(admin.get)
+      authorizedUsers.put(admin.get, EXTERNAL)
       replyMd(s"Authorizations reset")
     })(msg)
   }
@@ -507,9 +520,11 @@ trait BotAuthorization {
 
   def authenticateAndRun(run: () => Future[Unit])(implicit msg: Message): Future[Unit] = {
     val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
-    if (chatEnabled) {
+    val userAllowed = msg.from.map(_.id).exists(id => authorizedUsers.contains(id))
+    val bypass = msg.from.map(_.id).exists(id => authorizedUsers.get(id).contains(EXTERNAL))
+    if (chatEnabled || bypass) {
       if (authorizationEnabled) {
-        if (msg.from.map(_.id).exists(id => authorizedUsers.contains(id))) {
+        if (userAllowed) {
           run()
         } else {
           deleteAfter(replyMd("You are not not authorized to make requests"))
@@ -532,8 +547,8 @@ trait BotAuthorization {
     deleteAfter(replyMessage)
   }
 
-  private def authAction(action: () => Future[Message])(implicit msg: Message): Future[Unit] = {
-    val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id)
+  private def authAction(action: () => Future[Message], bypass: Boolean = false)(implicit msg: Message): Future[Unit] = {
+    val chatEnabled = !chatAuthorizationEnabled || authorizedChats.contains(msg.chat.id) || bypass
     val replyMessage = if (chatEnabled) {
       val isAdmin: Boolean = msg.from.map(_.id).exists(id => admin.contains(id))
       if (authorizationEnabled || isAdmin) {
