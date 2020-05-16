@@ -30,6 +30,8 @@ Telegram bot for Ombi Requests
 
 ## authorization notes:
 
+authorization is in the images after 2.0. (latest / 2.1-SNAPSHOT)
+
 in your env file, if you provide the BOT_ADMIN env variable with a user id,
 then authorization will be enabled on bot start, and that user id will be considered admin.
 the admin will have to add users, to allow them to make request commands.
@@ -83,7 +85,7 @@ BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section
 
 ##### with docker
 
-available tags:  2.0 , 1.2, latest
+available tags:  2.0 , 1.2, latest, 2.1-SNAPSHOT
 
 for the latest changes (off master) run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest`
 
