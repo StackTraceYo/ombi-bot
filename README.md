@@ -4,7 +4,7 @@
 <a href="https://www.buymeacoffee.com/stacktraceyo" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" ></a>
 
 Telegram bot for Ombi Requests
-- v2.1-SNAPSHOT
+- v2.2-SNAPSHOT
 
 
 ## commands:
@@ -30,7 +30,7 @@ Telegram bot for Ombi Requests
 
 ## authorization notes:
 
-authorization is in the images after 2.0. (latest / 2.1-SNAPSHOT)
+authorization is in the images after 2.0. (latest / 2.1)
 
 in your env file, if you provide the BOT_ADMIN env variable with a user id,
 then authorization will be enabled on bot start, and that user id will be considered admin.
