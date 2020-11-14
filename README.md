@@ -6,6 +6,9 @@
 Telegram bot for Ombi Requests
 - v2.2-SNAPSHOT
 
+### note - only works with ombi v3
+for v4 ombi go to the [ombi-v4 branch](https://github.com/StackTraceYo/ombi-bot/tree/ombiv4)
+
 
 ## commands:
 * /searchmovie Movie Title or imdb url
@@ -85,7 +88,7 @@ BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section
 
 ##### with docker
 
-available tags:  2.0, 2.1,  1.2, latest
+available tags:  2.0, 2.1,  1.2, latest, 2.2-OMBI-V4 (for ombi v4 only)
 
 for the latest changes (off master) run `docker run --env-file bot.env -d  stacktraceyo/ombi-bot:latest`
 
