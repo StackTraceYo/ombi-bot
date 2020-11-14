@@ -30,7 +30,7 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
 
   implicit val ombi: OmbiParams = config.ombi
   private val token: String = config.botToken
-  private val push: Option[Long] = Some(-1001230171724L)
+  private val push: Option[Long] = Option.empty
 
   val name: String = config.botName
 
