@@ -26,3 +26,4 @@ hs_err_pid*
 **/target
 bot.env
 **/TestBotConfig.java
+.DS_Store

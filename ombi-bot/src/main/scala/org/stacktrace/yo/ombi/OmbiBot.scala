@@ -30,16 +30,17 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
 
   implicit val ombi: OmbiParams = config.ombi
   private val token: String = config.botToken
-  private val push: Option[Long] = Option.empty
+  private val push: Option[Long] = Some(-1001230171724L)
 
   val name: String = config.botName
 
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.TRACE
 
-
+  type MResult = (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])
   type Searcher[A] = String => Identity[Response[Either[ResponseError[Exception], Seq[A]]]]
-  type ResultMapper[A] = Seq[A] => (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])
+  type ResultMapper[A] = Seq[A] => MResult
+  type CombinedResultMapper[A] = Seq[A] => (MResult, MResult)
   type MessageMaker = Option[Seq[MediaRequestData]] => Option[Seq[SendMessage]]
   type AvailMessageMaker = Option[Seq[AvailMediaData]] => Option[SendMessage]
   type MediaRequester = String => Identity[Response[Either[String, String]]]
@@ -95,8 +96,7 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
         sequentialSendAndSaveMessageId(
           Seq(SendMessage(msg.source, "*Searching Movies and TV*", parseMode = Some(ParseMode.Markdown), disableNotification = Some(true)))
         ).map(ids => chatState(msg.source) = ids)
-          .flatMap(_ => runCommand(OmbiAPI.searchMovie, movieResultsMessage, movieResultsMarkup, movieAvailReply)
-            .flatMap(_ => runCommand(OmbiAPI.searchTV, tvResultsMessage, tvResultsMarkup, tvAvailReply)))
+          .flatMap(_ => runCombined(OmbiAPI.searchAll, combinedMessage, (movieResultsMarkup, tvResultsMarkup), (movieAvailReply, tvAvailReply)))
       }
     }
 
@@ -136,7 +136,7 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
       } else {
         query
       }
-      val (avail, (resultsHeader, resMessages)) = searcher(parsed).body.fold(
+      val (avail: SendMessage, (resultsHeader, resMessages)) = searcher(parsed).body.fold(
         _ => noResNoAvail,
         r =>
           if (r.isEmpty) {
@@ -152,6 +152,47 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
           }
       )
       sequentialSendAndSaveMessageId(avail +: (resultsHeader +: resMessages))
+        .map(ids => chatState(msg.source) = ids)
+        .void
+    }
+  }
+
+  def runCombined[A](searcher: Searcher[A], resulted: CombinedResultMapper[A], markers: (MessageMaker, MessageMaker), availMakers: (AvailMessageMaker, AvailMessageMaker))(implicit msg: Message): Future[Unit] = {
+    withArgs { args =>
+      val query = args.mkString(" ")
+      val parsed = if (IMDBSearch.looksLike(query)) {
+        deleteAfter(request(textMD("*IMDB link detected...*")), 2 seconds)
+        IMDBSearch(query)
+      } else {
+        query
+      }
+      val allAvailSeq = searcher(parsed).body.fold(
+        _ => {
+          Seq(noResNoAvail, noResNoAvail)
+        },
+        r =>
+          if (r.isEmpty) {
+            Seq(noResNoAvail, noResNoAvail)
+          }
+          else {
+            val ((mAvail, mResults), (tAvail, tResults)) = resulted(r)
+            val (mAvailMaker, tAvailMaker) = availMakers
+            val (mMessageMaker, tMessageMaker) = markers
+
+            val mr = mMessageMaker(mResults)
+              .map(r => (textMD(s"*Found ${r.length} Search Results*\n\n"), r))
+              .getOrElse((noRes, Seq()))
+            val tr = tMessageMaker(tResults)
+              .map(r => (textMD(s"*Found ${r.length} Search Results*\n\n"), r))
+              .getOrElse((noRes, Seq()))
+
+            Seq(
+              (defaultMessage(mAvailMaker(mAvail), msg, "*No results available in Plex*"), mr),
+              (defaultMessage(tAvailMaker(tAvail), msg, "*No results available in Plex*"), tr)
+            )
+          }
+      )
+      sequentialSendAndSaveMessageId(allAvailSeq.flatMap(a => a._1 +: (a._2._1 +: a._2._2)))
         .map(ids => chatState(msg.source) = ids)
         .void
     }
@@ -286,6 +327,12 @@ class OmbiBot(val config: BotConfig) extends TelegramBot with Polling with Callb
         }).map(pair => SendMessage(msg.source, pair._1, replyMarkup = Some(pair._2)))
       })
     }
+  }
+
+  def combinedMessage(results: Seq[(Option[OmbiMovieSearchResult], Option[OmbiTVSearchResult])]): ((Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]]), (Option[Seq[AvailMediaData]], Option[Seq[MediaRequestData]])) = {
+    val tv: Seq[OmbiTVSearchResult] = results.filter(_._2.isDefined).map(_._2.get)
+    val movies: Seq[OmbiMovieSearchResult] = results.filter(_._1.isDefined).map(_._1.get)
+    (movieResultsMessage(movies), tvResultsMessage(tv))
   }
 
   def movieResultsMarkup(implicit msg: Message): MessageMaker = resultsMessageAndMarkup(movie = true)

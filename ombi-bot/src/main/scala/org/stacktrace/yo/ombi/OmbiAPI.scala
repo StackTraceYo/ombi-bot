@@ -12,52 +12,78 @@ object OmbiAPI {
   implicit val backend: SttpBackend[Identity, Nothing, NothingT] = HttpURLConnectionBackend()
   implicit val serialization: Serialization.type = org.json4s.jackson.Serialization
 
-  def searchMovie(query: String)(implicit ombi: OmbiParams): Identity[Response[Either[ResponseError[Exception], Seq[OmbiMovieSearchResult]]]] = {
-    basicRequest.get(uri"${ombi.host}/api/v1/Search/Movie/$query")
+
+  def searchAll(query: String)(implicit ombi: OmbiParams): Identity[Response[Either[ResponseError[Exception], Seq[(Option[OmbiMovieSearchResult], Option[OmbiTVSearchResult])]]]] = {
+    basicRequest.post(uri"${ombi.host}/api/v2/search/multi/$query")
+      .body(MultiSearch(movies = true, tvShows = true))
       .headers(
         new Header("ApiKey", ombi.key),
         new Header(ombi.userHeader, ombi.userValue),
         new Header("Content-Type", MediaTypes.Json)
       )
-      .response(asJson[Seq[OmbiMovieSearchResult]])
-      .mapResponse(e => e.fold(l => Left(l), r => Right(r.map(movieDetail))))
+      .response(asJson[Seq[MultiSearchRes]])
+      .mapResponse(e => e.fold(l => Left(l), r => {
+        val all = r.map(rr => {
+          rr.mediaType match {
+            case "movie" => (Some(movieDetail(rr)), Option.empty)
+            case "tv" => (Option.empty, Some(tvDetail(rr)))
+            case _ => (Option.empty, Option.empty)
+          }
+        })
+        Right(all)
+      }))
+      .send()
+  }
+
+  def searchMovie(query: String)(implicit ombi: OmbiParams): Identity[Response[Either[ResponseError[Exception], Seq[OmbiMovieSearchResult]]]] = {
+    basicRequest.post(uri"${ombi.host}/api/v2/search/multi/$query")
+      .body(MultiSearch(movies = true))
+      .headers(
+        new Header("ApiKey", ombi.key),
+        new Header(ombi.userHeader, ombi.userValue),
+        new Header("Content-Type", MediaTypes.Json)
+      )
+      .response(asJson[Seq[MultiSearchRes]])
+      .mapResponse(e => e.fold(l => Left(l), r => Right(r.filter(_.mediaType == "movie").map(movieDetail))))
       .send()
   }
 
   def searchTV(query: String)(implicit ombi: OmbiParams): Identity[Response[Either[ResponseError[Exception], Seq[OmbiTVSearchResult]]]] = {
-    basicRequest.get(uri"${ombi.host}/api/v1/Search/Tv/$query")
+    basicRequest.post(uri"${ombi.host}/api/v2/search/multi/$query")
+      .body(MultiSearch(tvShows = true))
       .headers(
         new Header("ApiKey", ombi.key),
         new Header(ombi.userHeader, ombi.userValue),
         new Header("Content-Type", MediaTypes.Json)
       )
-      .response(asJson[Seq[OmbiTVSearchResult]])
-      .mapResponse(e => e.fold(l => Left(l), r => Right(r.map(tvDetail))))
+      .response(asJson[Seq[MultiSearchRes]])
+      .mapResponse(e => e.fold(l => Left(l), r => Right(r.filter(_.mediaType == "tv").map(tvDetail))))
       .send()
   }
 
-  def tvDetail(result: OmbiTVSearchResult)(implicit ombi: OmbiParams): OmbiTVSearchResult = {
-    basicRequest.get(uri"${ombi.host}/api/v1/Search/Tv/info/${result.infoId}")
+
+  def tvDetail(result: MultiSearchRes)(implicit ombi: OmbiParams): OmbiTVSearchResult = {
+    basicRequest.get(uri"${ombi.host}/api/v2/Search/Tv/moviedb/${result.id}")
       .headers(
         new Header("ApiKey", ombi.key),
         new Header(ombi.userHeader, ombi.userValue),
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[OmbiTVSearchResult])
-      .mapResponse(e => e.fold(_ => result, r => result.merge(r)))
+      .mapResponse(e => e.fold(_ => null, r => r))
       .send()
       .body
   }
 
-  def movieDetail(result: OmbiMovieSearchResult)(implicit ombi: OmbiParams): OmbiMovieSearchResult = {
-    basicRequest.get(uri"${ombi.host}/api/v1/Search/Movie/info/${result.infoId}")
+  def movieDetail(result: MultiSearchRes)(implicit ombi: OmbiParams): OmbiMovieSearchResult = {
+    basicRequest.get(uri"${ombi.host}/api/v1/Search/Movie/info/${result.id}")
       .headers(
         new Header("ApiKey", ombi.key),
         new Header(ombi.userHeader, ombi.userValue),
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[OmbiMovieSearchResult])
-      .mapResponse(e => e.fold(_ => result, r => result.merge(r)))
+      .mapResponse(e => e.fold(_ => null, r => r))
       .send()
       .body
   }
@@ -118,25 +144,20 @@ object OmbiAPI {
     } else {
       id
     }
-
-    def merge(r: OmbiMovieSearchResult): OmbiMovieSearchResult = {
-      copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, imdbId = r.imdbId)
-    }
   }
 
   case class OmbiTVSearchResult(theTvDbId: String, banner: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, firstAired: String, id: String, imdbId: String, seasonRequests: Seq[Season] = Seq()) {
     def isAvailable: Boolean = available || (plexUrl != null && plexUrl.nonEmpty)
-
-    def merge(r: OmbiTVSearchResult): OmbiTVSearchResult = {
-      copy(approved = r.approved, available = r.available, requested = r.requested, plexUrl = r.plexUrl, theTvDbId = r.theTvDbId, imdbId = r.imdbId)
-    }
 
     def infoId: String = if (theTvDbId != null) {
       theTvDbId
     } else {
       id
     }
-
   }
+
+  case class MultiSearch(movies: Boolean = false, music: Boolean = false, people: Boolean = false, tvShows: Boolean = false)
+
+  case class MultiSearchRes(id: String, mediaType: String, poster: String, title: String)
 
 }
