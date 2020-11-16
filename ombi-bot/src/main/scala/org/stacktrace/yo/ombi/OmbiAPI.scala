@@ -2,11 +2,12 @@ package org.stacktrace.yo.ombi
 
 import com.softwaremill.sttp.MediaTypes
 import org.json4s.jackson.Serialization
+import slogging.LazyLogging
 import sttp.client._
 import sttp.client.json4s._
 import sttp.model.Header
 
-object OmbiAPI {
+object OmbiAPI extends LazyLogging {
 
 
   implicit val backend: SttpBackend[Identity, Nothing, NothingT] = HttpURLConnectionBackend()
@@ -22,16 +23,21 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[Seq[MultiSearchRes]])
-      .mapResponse(e => e.fold(l => Left(l), r => {
-        val all = r.map(rr => {
-          rr.mediaType match {
-            case "movie" => (Some(movieDetail(rr)), Option.empty)
-            case "tv" => (Option.empty, Some(tvDetail(rr)))
-            case _ => (Option.empty, Option.empty)
-          }
-        })
-        Right(all)
-      }))
+      .mapResponse(e => e.fold(
+        l => {
+          logger.error(l.body)
+          Left(l)
+        },
+        r => {
+          val all = r.map(rr => {
+            rr.mediaType match {
+              case "movie" => (Some(movieDetail(rr)), Option.empty)
+              case "tv" => (Option.empty, Some(tvDetail(rr)))
+              case _ => (Option.empty, Option.empty)
+            }
+          })
+          Right(all)
+        }))
       .send()
   }
 
@@ -44,7 +50,12 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[Seq[MultiSearchRes]])
-      .mapResponse(e => e.fold(l => Left(l), r => Right(r.filter(_.mediaType == "movie").map(movieDetail))))
+      .mapResponse(e => e.fold(
+        l => {
+          logger.error(l.body)
+          Left(l)
+        },
+        r => Right(r.filter(_.mediaType == "movie").map(movieDetail))))
       .send()
   }
 
@@ -57,7 +68,12 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[Seq[MultiSearchRes]])
-      .mapResponse(e => e.fold(l => Left(l), r => Right(r.filter(_.mediaType == "tv").map(tvDetail))))
+      .mapResponse(e => e.fold(
+        l => {
+          logger.error(l.body)
+          Left(l)
+        },
+        r => Right(r.filter(_.mediaType == "tv").map(tvDetail))))
       .send()
   }
 
@@ -70,7 +86,12 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[OmbiTVSearchResult])
-      .mapResponse(e => e.fold(_ => null, r => r))
+      .mapResponse(e => e.fold(
+        l => {
+          logger.error(l.body)
+          null
+        },
+        r => r))
       .send()
       .body
   }
@@ -83,7 +104,12 @@ object OmbiAPI {
         new Header("Content-Type", MediaTypes.Json)
       )
       .response(asJson[OmbiMovieSearchResult])
-      .mapResponse(e => e.fold(_ => null, r => r))
+      .mapResponse(e => e.fold(
+        l => {
+          logger.error(l.body)
+          null
+        },
+        r => r))
       .send()
       .body
   }
@@ -107,7 +133,10 @@ object OmbiAPI {
       )
       .response(asJson[OmbiTVSearchResult])
       .mapResponse(e => e.fold(
-        l => Left(l),
+        l => {
+          logger.error(l.body)
+          Left(l)
+        },
         r => Right(basicRequest.post(uri"${ombi.host}/api/v1/Request/Tv/").body(OmbiTVRequest(id, seasons = r.seasonRequests))
           .headers(
             new Header("ApiKey", ombi.key),
