@@ -25,7 +25,7 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[Seq[MultiSearchRes]])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           Left(l)
         },
         r => {
@@ -36,6 +36,7 @@ object OmbiAPI extends LazyLogging {
               case _ => (Option.empty, Option.empty)
             }
           })
+          logger.info(s"Search Results: ${all.mkString(" ")}")
           Right(all)
         }))
       .send()
@@ -52,10 +53,14 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[Seq[MultiSearchRes]])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           Left(l)
         },
-        r => Right(r.filter(_.mediaType == "movie").map(movieDetail))))
+        r => {
+          val movies = r.filter(_.mediaType == "movie")
+          logger.info(s"Search Results: ${movies.map(_.toString).mkString(" ")}")
+          Right(movies.map(movieDetail))
+        }))
       .send()
   }
 
@@ -70,10 +75,14 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[Seq[MultiSearchRes]])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           Left(l)
         },
-        r => Right(r.filter(_.mediaType == "tv").map(tvDetail))))
+        r => {
+          val tvs = r.filter(_.mediaType == "tv")
+          logger.info(tvs.map(_.toString).mkString(" "))
+          Right(tvs.map(tvDetail))
+        }))
       .send()
   }
 
@@ -88,10 +97,14 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[OmbiTVSearchResult])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           null
         },
-        r => r))
+        r => {
+          logger.info(s"${r}")
+          r
+        }
+      ))
       .send()
       .body
   }
@@ -106,10 +119,14 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[OmbiMovieSearchResult])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           null
         },
-        r => r))
+        r => {
+          logger.info(s"${r}")
+          r
+        }
+      ))
       .send()
       .body
   }
@@ -134,7 +151,7 @@ object OmbiAPI extends LazyLogging {
       .response(asJson[OmbiTVSearchResult])
       .mapResponse(e => e.fold(
         l => {
-          logger.error(l.body)
+          logger.error(s"Error: ${l.getMessage} BODY: ${l.body}")
           Left(l)
         },
         r => Right(basicRequest.post(uri"${ombi.host}/api/v1/Request/Tv/").body(OmbiTVRequest(id, seasons = r.seasonRequests))
@@ -173,6 +190,7 @@ object OmbiAPI extends LazyLogging {
     } else {
       id
     }
+
   }
 
   case class OmbiTVSearchResult(theTvDbId: String, banner: String, approved: Boolean, requested: Boolean, requestId: Integer, available: Boolean, plexUrl: String, isDetail: Boolean = false, title: String, firstAired: String, id: String, imdbId: String, seasonRequests: Seq[Season] = Seq()) {
