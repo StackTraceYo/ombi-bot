@@ -79,7 +79,7 @@ OMBI_HOST=<http://www.ombiserver.com:9090> // The url to ombi instance
 OMBI_KEY=<ombi api key> // ombi api key
 OMBI_BOT_TOKEN=<telegram token> // telegram bot token
 OMBI_BOT_NAME=<telegram bot name> // name of telegram bot
-OMBI_USER_NAME=<ombi admin name> (OPTIONAL) // ombi admin username
+OMBI_USER_NAME=<ombi user name> (OPTIONAL) // ombi user for requests. configure this user with permissions according to your needs
 BOT_ADMIN=<admin user id> (OPTIONAL) // admin user id - see authorization section
 BOT_CHAT_ID=<allowed chat id> (OPTIONAL) //  - see authorization section 
 ```
